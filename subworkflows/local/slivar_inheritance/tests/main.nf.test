@@ -1,0 +1,86 @@
+nextflow_workflow {
+
+    name "Test Subworkflow SLIVAR_INHERITANCE"
+    script "../main.nf"
+    workflow "SLIVAR_INHERITANCE"
+
+    tag "subworkflows"
+    tag "subworkflows_local"
+    tag "slivar_inheritance"
+    tag "slivar"
+
+    test("moi_tags-moi_cases") {
+        // Runs the real conf/slivar.config (no per-test ext.args override), so the
+        // tag names and the compound-het --sample-field are the ones the pipeline
+        // uses. fixtures/moi_cases holds five trios and one record per case:
+        // each MoI tag alone, the four records where two MoI tags fire together,
+        // and a de novo + inherited het in the same gene and child (c5kid).
+        when {
+            params {
+                outdir = "$outputDir"
+                // conf/test.config enables the gnomAD gnotate file, which adds
+                // INFO.gnomad_popmax_af clauses this fixture has no data for.
+                slivar_gnomad_gnotate = null
+            }
+            workflow {
+                """
+                input[0] = Channel.of([
+                    [ id:'moi_cases' ],
+                    file("\${projectDir}/subworkflows/local/slivar_inheritance/tests/fixtures/moi_cases.vcf.gz", checkIfExists: true),
+                    file("\${projectDir}/subworkflows/local/slivar_inheritance/tests/fixtures/moi_cases.vcf.gz.tbi", checkIfExists: true),
+                    file("\${projectDir}/subworkflows/local/slivar_inheritance/tests/fixtures/moi_cases.ped", checkIfExists: true)
+                ])
+                input[1] = []
+                input[2] = []
+                input[3] = []
+                input[4] = file("\${projectDir}/assets/slivar-functions.js", checkIfExists: true)
+                """
+            }
+        }
+
+        then {
+            def records = path(workflow.out.vcf_tbi.get(0).get(1)).linesGzip.findAll { !it.startsWith('#') }
+            // "CHROM:POS" -> set of INFO tag names on that record
+            def tagsAt = records.collectEntries { line ->
+                def cols = line.split('\t')
+                [ ("${cols[0]}:${cols[1]}".toString()): cols[7].split(';').collect { it.split('=', 2)[0] } as Set ]
+            }
+            // Current MoI tag names plus the pre-BIOINFO-239 ones, so a leftover
+            // old name shows up as an unexpected tag.
+            def moiTags = [
+                'autosomal_dominant_de_novo', 'autosomal_dominant', 'autosomal_recessive', 'uniparental_disomy',
+                'x_linked_dominant_de_novo', 'x_linked_recessive_de_novo', 'x_linked_dominant', 'x_linked_recessive',
+                'denovo', 'dominant', 'recessive', 'x_denovo', 'x_dominant', 'x_recessive'
+            ] as Set
+            def moiAt = { pos -> tagsAt[pos].intersect(moiTags) }
+            def line = { pos -> records.find { it.startsWith(pos.replace(':', '\t') + '\t') } }
+
+            assertAll(
+                { assert workflow.success },
+                { assert records.size() == 10 },
+                // one MoI tag
+                { assert moiAt('chr1:3000') == ['autosomal_dominant'] as Set },
+                { assert moiAt('chr1:4000') == ['autosomal_dominant_de_novo'] as Set },
+                { assert moiAt('chr1:5000') == ['autosomal_recessive'] as Set },
+                { assert moiAt('chr1:6000') == [] as Set },
+                { assert moiAt('chrX:3300000') == ['x_linked_recessive'] as Set },
+                // X de novo is named by the child's sex: daughter c5kid, son c4kid
+                { assert moiAt('chrX:3200000') == ['x_linked_dominant_de_novo'] as Set },
+                { assert line('chrX:3200000').contains('x_linked_dominant_de_novo=c5kid') },
+                { assert line('chrX:3100000').contains('x_linked_recessive_de_novo=c4kid') },
+                // two MoI tags on the same record (cases 1-4 in docs/output.md)
+                { assert moiAt('chr1:1000') == ['autosomal_recessive', 'autosomal_dominant'] as Set },
+                { assert moiAt('chrX:3000000') == ['x_linked_recessive', 'x_linked_dominant'] as Set },
+                { assert moiAt('chr1:2000') == ['autosomal_dominant', 'uniparental_disomy'] as Set },
+                { assert moiAt('chrX:3100000') == ['x_linked_recessive_de_novo', 'x_linked_recessive'] as Set },
+                // SLIVAR_COMPOUNDHETS reads autosomal_dominant_de_novo by name: the de
+                // novo at 4000 pairs with c5kid's inherited het at 6000. If its
+                // --sample-field fell out of sync with the tag name, slivar would
+                // silently ignore it and neither record would get slivar_comphet.
+                { assert tagsAt['chr1:4000'].contains('slivar_comphet') },
+                { assert tagsAt['chr1:6000'].contains('slivar_comphet') },
+                { assert records.count { it.contains('slivar_comphet=') } == 2 }
+            )
+        }
+    }
+}

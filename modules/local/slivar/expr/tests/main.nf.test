@@ -71,16 +71,21 @@ nextflow_process {
     }
 
     test("parental_origin-po_validation") {
-        // Reproduces the po_* --trio expressions from conf/slivar.config verbatim
-        // (the AF-gate clauses there are empty unless slivar_gnomad_gnotate/
-        // slivar_topmed_gnotate are set, which they aren't here) against the real
-        // assets/slivar-functions.js and a fixture VCF that was hand-built to hit
-        // all 9 possible parental_origin() return labels, one per record -- see
-        // subworkflows/local/slivar_inheritance/tests/fixtures/.
+        // Reproduces the po_* and proband-genotype --trio expressions from
+        // conf/slivar.config verbatim (the AF-gate clauses there are empty unless
+        // slivar_gnomad_gnotate/slivar_topmed_gnotate are set, which they aren't
+        // here) against the real assets/slivar-functions.js and a fixture VCF that
+        // was hand-built to hit all 9 possible parental_origin() return labels,
+        // plus hom-ref and unknown probands, which get no po_* tag -- see
+        // subworkflows/local/slivar_inheritance/tests/fixtures/. The fixture carries
+        // no slivar tags of its own: slivar never removes an INFO tag already in
+        // its input, so a stale one would satisfy these assertions by itself.
         when {
             params {
                 args_modules = [
                     "--info 'variant.FILTER == \"PASS\" && variant.ALT[0] != \"*\" && INFO.impactful'",
+                    "--trio 'non_carrier_proband:proband_non_carrier(kid)'",
+                    "--trio 'unknown_proband_genotype:proband_gt_unknown(kid)'",
                     "--trio \"po_denovo:parental_origin(variant.CHROM, variant.POS, kid, dad, mom) == 'DENOVO'\"",
                     "--trio \"po_mother:parental_origin(variant.CHROM, variant.POS, kid, dad, mom) == 'MOTHER'\"",
                     "--trio \"po_father:parental_origin(variant.CHROM, variant.POS, kid, dad, mom) == 'FATHER'\"",
@@ -110,10 +115,11 @@ nextflow_process {
 
         then {
             def lines = path(process.out.vcf.get(0).get(1)).linesGzip.findAll { !it.startsWith('#') }
+            def anyPoTag = ~/;po_\w+=/
 
             assertAll(
                 { assert process.success },
-                { assert lines.size() == 16 },
+                { assert lines.size() == 20 },
                 { assert lines.find { it.startsWith("chr1\t1000\t") }.contains("po_denovo=kid") },
                 { assert lines.find { it.startsWith("chr1\t2000\t") }.contains("po_mother=kid") },
                 { assert lines.find { it.startsWith("chr1\t3000\t") }.contains("po_father=kid") },
@@ -124,12 +130,29 @@ nextflow_process {
                 { assert lines.find { it.startsWith("chr1\t8000\t") }.contains("po_unknown=kid") },
                 { assert lines.find { it.startsWith("chr1\t9000\t") }.contains("po_possible_denovo=kid") },
                 { assert lines.find { it.startsWith("chr1\t10000\t") }.contains("po_possible_denovo=kid") },
-                { assert lines.find { it.startsWith("chr1\t11000\t") }.contains("po_unknown=kid") },
-                { assert lines.find { it.startsWith("chr1\t12000\t") }.contains("po_unknown=kid") },
                 { assert lines.find { it.startsWith("chr1\t13000\t") }.contains("po_father=kid") },
                 { assert lines.find { it.startsWith("chrX\t3000000\t") }.contains("po_mother=kid") },
                 { assert lines.find { it.startsWith("chrX\t3100000\t") }.contains("po_father=kid") },
-                { assert lines.find { it.startsWith("chrY\t3000000\t") }.contains("po_father=kid") }
+                { assert lines.find { it.startsWith("chrY\t3000000\t") }.contains("po_father=kid") },
+                // Unknown proband: het with 1 alt read (11000), no-call (12000), and
+                // hom-ref with 2 ref reads (15000) -- po_adj() downgrades all three.
+                { assert lines.find { it.startsWith("chr1\t11000\t") }.contains("unknown_proband_genotype=kid") },
+                { assert !(lines.find { it.startsWith("chr1\t11000\t") } =~ anyPoTag) },
+                { assert lines.find { it.startsWith("chr1\t12000\t") }.contains("unknown_proband_genotype=kid") },
+                { assert !(lines.find { it.startsWith("chr1\t12000\t") } =~ anyPoTag) },
+                { assert lines.find { it.startsWith("chr1\t15000\t") }.contains("unknown_proband_genotype=kid") },
+                { assert !(lines.find { it.startsWith("chr1\t15000\t") } =~ anyPoTag) },
+                // Hom-ref proband. On X and Y the son tables are keyed on the parents
+                // only, so without the guard these would be po_mother / po_father.
+                { assert lines.find { it.startsWith("chr1\t14000\t") }.contains("non_carrier_proband=kid") },
+                { assert !(lines.find { it.startsWith("chr1\t14000\t") } =~ anyPoTag) },
+                { assert lines.find { it.startsWith("chrX\t3200000\t") }.contains("non_carrier_proband=kid") },
+                { assert !(lines.find { it.startsWith("chrX\t3200000\t") } =~ anyPoTag) },
+                { assert lines.find { it.startsWith("chrY\t3100000\t") }.contains("non_carrier_proband=kid") },
+                { assert !(lines.find { it.startsWith("chrY\t3100000\t") } =~ anyPoTag) },
+                // A carrier proband never gets a proband-genotype tag.
+                { assert lines.findAll { it.contains("non_carrier_proband=") }.size() == 3 },
+                { assert lines.findAll { it.contains("unknown_proband_genotype=") }.size() == 3 }
             )
         }
     }
@@ -138,9 +161,10 @@ nextflow_process {
         // Guards the concern behind BIOINFO-217's parental-origin step: the po_*
         // --trio expressions must only ever be evaluated for genuinely complete
         // trios. This fixture packs a real trio alongside a solo sample, a duo
-        // with an unknown father, and a family whose PED declares a third member
-        // that simply isn't in the VCF -- all sharing one variant record. Only the
-        // real trio's kid may end up with a po_* tag.
+        // with an unknown father, a duo with an unknown mother, a sibship, and a
+        // family whose PED declares a third member that simply isn't in the VCF --
+        // all sharing one variant record. Only the real trio's kid may end up with
+        // a po_* tag.
         when {
             params {
                 args_modules = [
@@ -189,7 +213,60 @@ nextflow_process {
                 { assert !line.contains("po_possible_father=") },
                 { assert !line.contains("po_unknown=") },
                 // belt-and-suspenders: no po_* tag ever names a non-trio family member
-                { assert !(line =~ /po_\w+=[^;]*\b(solo1|duokid|duomom|kid2|mom2)\b/) }
+                { assert !(line =~ /po_\w+=[^;]*\b(solo1|duokid|duomom|kid2|mom2|duokid2|duodad|sib1|sib2)\b/) }
+            )
+        }
+    }
+
+    test("transmission_sentinels-trio_gating") {
+        // Reproduces the unknown_*_genotype / proband-genotype expressions from
+        // conf/slivar.config against the same mixed-structure fixture. The tag
+        // value lists the family's affected sample(s). kid2's PED names a father
+        // who isn't in the VCF; slivar then drops BOTH of kid2's parent links, so
+        // this guards the parents-by-sex lookup that still finds mom2.
+        when {
+            params {
+                args_modules = [
+                    "--info 'variant.FILTER == \"PASS\" && variant.ALT[0] != \"*\" && INFO.impactful'",
+                    "--family-expr 'unknown_parents_genotype:moi_unknown_parents_genotype(fam)'",
+                    "--family-expr 'unknown_father_genotype:moi_unknown_father_genotype(fam)'",
+                    "--family-expr 'unknown_mother_genotype:moi_unknown_mother_genotype(fam)'",
+                    "--trio 'non_carrier_proband:proband_non_carrier(kid)'",
+                    "--trio 'unknown_proband_genotype:proband_gt_unknown(kid)'"
+                ].join(" ")
+            }
+            process {
+                """
+                input[0] = [
+                    [ id:'trio_gating' ],
+                    file("\${projectDir}/subworkflows/local/slivar_inheritance/tests/fixtures/trio_gating.vcf.gz", checkIfExists: true),
+                    file("\${projectDir}/subworkflows/local/slivar_inheritance/tests/fixtures/trio_gating.vcf.gz.tbi", checkIfExists: true),
+                    file("\${projectDir}/subworkflows/local/slivar_inheritance/tests/fixtures/trio_gating.ped", checkIfExists: true)
+                ]
+                input[1] = []
+                input[2] = []
+                input[3] = []
+                input[4] = file("\${projectDir}/assets/slivar-functions.js", checkIfExists: true)
+                """
+            }
+        }
+
+        then {
+            def line = path(process.out.vcf.get(0).get(1)).linesGzip.find { !it.startsWith('#') }
+            // INFO tag -> set of sample IDs (slivar's sample order within a tag isn't guaranteed)
+            def tags = line.split('\t')[7].split(';').findAll { it.contains('=') }.collectEntries { field ->
+                def (key, value) = field.split('=', 2)
+                [ (key): value.split(',') as Set ]
+            }
+
+            assertAll(
+                { assert process.success },
+                { assert tags.unknown_parents_genotype == ['solo1', 'sib1'] as Set },
+                { assert tags.unknown_father_genotype == ['duokid', 'kid2'] as Set },
+                { assert tags.unknown_mother_genotype == ['duokid2'] as Set },
+                // the only complete trio's kid is het
+                { assert !tags.containsKey('non_carrier_proband') },
+                { assert !tags.containsKey('unknown_proband_genotype') }
             )
         }
     }
