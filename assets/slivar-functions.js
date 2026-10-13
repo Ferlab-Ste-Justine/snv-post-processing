@@ -88,7 +88,7 @@ function segregating_recessive(s) {
   if (variant.CHROM == "chrX" || variant.CHROM == "X") return segregating_recessive_x(s);
   if (s.affected) return s.hom_alt;
   // Unaffected: stricter rule for parents, permissive for sibs.
-  if (s.kids && s.kids.length > 0) return s.het;
+  if (has_kids_in_fam(s)) return s.het;
   return s.het || s.hom_ref;
 }
 
@@ -152,8 +152,9 @@ function segregating_dominant_x(s) {
   if (!s.affected) return hq1(s, true) && s.hom_ref;
 
   if (s.sex == "male") {
-    for (var i=0; i < s.kids.length; i++) {
-      var kid = s.kids[i];
+    var kids = ("kids" in s) ? s.kids : [];
+    for (var i=0; i < kids.length; i++) {
+      var kid = kids[i];
       // Only daughters of an affected dad are required to be affected.
       if (kid.sex == "female" && !kid.affected) return false;
     }
@@ -181,6 +182,12 @@ function segregating_dominant_x(s) {
 function is_autosomal() { return variant.CHROM !== "X" && variant.CHROM !== "chrX"; }
 function is_x_linked()  { return variant.CHROM === "X" || variant.CHROM === "chrX"; }
 
+// When the PED names a parent who isn't in the VCF, slivar omits `kids` on
+// that parent's children (see "Transmission-mode sentinels" below). Reading a
+// missing attribute throws, and slivar then counts the whole expression as
+// false, silently dropping its tag. Use this instead of reading s.kids.
+function has_kids_in_fam(s) { return ("kids" in s) && s.kids.length > 0; }
+
 // True iff any family member is BOTH affected AND has children in the
 // family (i.e. they're an affected parent we observe). Gates
 // `autosomal_dominant` / `x_linked_dominant` so they don't fire on de novo
@@ -188,7 +195,7 @@ function is_x_linked()  { return variant.CHROM === "X" || variant.CHROM === "chr
 function has_aff_parent(fam) {
   for (var i=0; i<fam.length; i++) {
     var s = fam[i];
-    if (s.affected && s.kids && s.kids.length > 0) return true;
+    if (s.affected && has_kids_in_fam(s)) return true;
   }
   return false;
 }
@@ -217,7 +224,7 @@ function present_parent_hom_alt(fam) {
   for (var i=0; i<fam.length; i++) {
     var s = fam[i];
     if (s.affected) continue;
-    if (!(s.kids && s.kids.length > 0)) continue;  // skip non-parents (siblings)
+    if (!has_kids_in_fam(s)) continue;  // skip non-parents (siblings)
     if (s.hom_alt && hq1(s)) return true;
   }
   return false;
@@ -243,7 +250,7 @@ function proband_has_both_parents(fam) {
 function no_parents_in_fam(fam) {
   for (var i=0; i<fam.length; i++) {
     var s = fam[i];
-    if (s.kids && s.kids.length > 0) return false;
+    if (has_kids_in_fam(s)) return false;
   }
   return true;
 }
@@ -362,15 +369,12 @@ function moi_candidate(fam) {
 // unknown_parents_genotype. Here it fires for solos and sibships.
 //
 // Parents are found as members with children in the family, by sex, rather
-// than through the kid's mom/dad links: when a PED parent isn't in the VCF,
-// slivar drops BOTH of the kid's parent links (and its `kids` attribute),
-// so a duo whose PED names an unsequenced father would look parentless.
+// than through the kid's mom/dad links: when the PED names a parent who isn't
+// in the VCF, slivar (0.3.1) drops the kid's `kids` attribute and, when the
+// missing parent is the father, the kid's `mom` link too. So a duo whose PED
+// names an unsequenced father would look parentless.
 
-// slivar omits `kids` on some samples (see above), and reading a missing
-// attribute throws, so check for it first.
-function has_kids_in_fam(s) { return ("kids" in s) && s.kids.length > 0; }
-
-// BIOINFO-239: When one PED parent is missing from the VCF, slivar drops both of the child's parent links.
+// BIOINFO-239: When one PED parent is missing from the VCF, slivar can drop the child's link to the other parent.
 // the helper finds parents from the other direction: anyone in the family with children there is a parent,
 // and their PED sex says whether they're the father or the mother.
 function has_parent_of_sex(fam, sex) {

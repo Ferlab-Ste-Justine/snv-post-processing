@@ -83,4 +83,75 @@ nextflow_workflow {
             )
         }
     }
+
+    test("moi_tags-absent_parent") {
+        // Every family's PED names a parent who isn't in the VCF. slivar then
+        // omits `kids` on that parent's children, and an expression that reads a
+        // missing attribute throws -- which slivar counts as false, silently
+        // dropping the tag. Each record reaches one of the `kids` reads in
+        // assets/slivar-functions.js:
+        //   chr1:1000     A1 affected dad + daughter, mom named only  -> has_aff_parent
+        //   chr1:2000     A3 affected son, unaffected sister and dad,
+        //                 mom named only                              -> segregating_recessive, no_parents_in_fam
+        //   chr1:3000/4000 A3 son's two hets in GENE2                 -> present_parent_hom_alt (het_side)
+        //   chrX:3000000  A2 affected mom + son, dad has a PED row
+        //                 but no VCF column                           -> segregating_dominant_x, has_aff_parent
+        // Children come before their parents in the VCF on purpose: slivar orders
+        // `fam` by VCF column, and some loops only reach a child first in that order.
+        when {
+            params {
+                outdir = "$outputDir"
+                slivar_gnomad_gnotate = null
+            }
+            workflow {
+                """
+                input[0] = Channel.of([
+                    [ id:'absent_parent' ],
+                    file("\${projectDir}/subworkflows/local/slivar_inheritance/tests/fixtures/absent_parent.vcf.gz", checkIfExists: true),
+                    file("\${projectDir}/subworkflows/local/slivar_inheritance/tests/fixtures/absent_parent.vcf.gz.tbi", checkIfExists: true),
+                    file("\${projectDir}/subworkflows/local/slivar_inheritance/tests/fixtures/absent_parent.ped", checkIfExists: true)
+                ])
+                input[1] = []
+                input[2] = []
+                input[3] = []
+                input[4] = file("\${projectDir}/assets/slivar-functions.js", checkIfExists: true)
+                """
+            }
+        }
+
+        then {
+            def records = path(workflow.out.vcf_tbi.get(0).get(1)).linesGzip.findAll { !it.startsWith('#') }
+            // "CHROM:POS" -> [INFO tag name: set of comma-separated values]
+            def infoAt = records.collectEntries { line ->
+                def cols = line.split('\t')
+                [ ("${cols[0]}:${cols[1]}".toString()): cols[7].split(';').collectEntries { kv ->
+                    def parts = kv.split('=', 2)
+                    [ (parts[0]): (parts.size() > 1 ? parts[1].split(',') as Set : [] as Set) ]
+                } ]
+            }
+            def moiTags = [
+                'autosomal_dominant_de_novo', 'autosomal_dominant', 'autosomal_recessive', 'uniparental_disomy',
+                'x_linked_dominant_de_novo', 'x_linked_recessive_de_novo', 'x_linked_dominant', 'x_linked_recessive'
+            ] as Set
+            def moiAt = { pos -> infoAt[pos].keySet().intersect(moiTags) }
+
+            assertAll(
+                { assert workflow.success },
+                { assert records.size() == 5 },
+                { assert moiAt('chr1:1000') == ['autosomal_dominant'] as Set },
+                { assert infoAt['chr1:1000']['autosomal_dominant'] == ['a1kid', 'a1dad'] as Set },
+                { assert moiAt('chr1:2000') == ['autosomal_recessive'] as Set },
+                { assert infoAt['chr1:2000']['autosomal_recessive'] == ['a3kid'] as Set },
+                { assert infoAt['chr1:2000']['candidate'] == ['a3kid'] as Set },
+                { assert moiAt('chrX:3000000') == ['x_linked_dominant'] as Set },
+                { assert infoAt['chrX:3000000']['x_linked_dominant'] == ['a2kid', 'a2mom'] as Set },
+                { assert infoAt['chr1:3000']['slivar_comphet'].every { it.startsWith('a3kid/GENE2/') } },
+                { assert infoAt['chr1:4000']['slivar_comphet'].every { it.startsWith('a3kid/GENE2/') } },
+                { assert records.count { it.contains('slivar_comphet=') } == 2 },
+                // Family-level, so set on every record: A1 and A3 lack a mother, A2 a father.
+                { assert infoAt['chr1:1000']['unknown_mother_genotype'] == ['a1kid', 'a1dad', 'a3kid'] as Set },
+                { assert infoAt['chr1:1000']['unknown_father_genotype'] == ['a2kid', 'a2mom'] as Set }
+            )
+        }
+    }
 }
