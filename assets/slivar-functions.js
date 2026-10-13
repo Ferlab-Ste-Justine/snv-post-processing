@@ -370,6 +370,9 @@ function moi_candidate(fam) {
 // attribute throws, so check for it first.
 function has_kids_in_fam(s) { return ("kids" in s) && s.kids.length > 0; }
 
+// BIOINFO-239: When one PED parent is missing from the VCF, slivar drops both of the child's parent links.
+// the helper finds parents from the other direction: anyone in the family with children there is a parent, 
+// and their PED sex says whether they're the father or the mother.
 function has_parent_of_sex(fam, sex) {
   for (var i=0; i<fam.length; i++) {
     if (has_kids_in_fam(fam[i]) && fam[i].sex == sex) return true;
@@ -377,6 +380,7 @@ function has_parent_of_sex(fam, sex) {
   return false;
 }
 
+// BIOINFO-239: nobody in the family has children there (solos, sibships);
 function moi_unknown_parents_genotype(fam) {
   for (var i=0; i<fam.length; i++) {
     if (has_kids_in_fam(fam[i])) return false;
@@ -384,16 +388,19 @@ function moi_unknown_parents_genotype(fam) {
   return true;
 }
 
+// BIOINFO-239: a mother is present, no father;
 function moi_unknown_father_genotype(fam) {
   return has_parent_of_sex(fam, "female") && !has_parent_of_sex(fam, "male");
 }
 
+// BIOINFO-239: a father is present, no mother;
 function moi_unknown_mother_genotype(fam) {
   return has_parent_of_sex(fam, "male") && !has_parent_of_sex(fam, "female");
 }
 
-// Proband genotype after the same low-depth downgrade parental_origin() uses
+// BIOINFO-239: Proband genotype after the same low-depth downgrade parental_origin() uses
 // (po_adj): 0 = hom-ref, -1 = no-call or too few reads to trust.
+// Here, every trio child who loses their po_* tag gets exactly one of the two explanations. 
 function proband_non_carrier(kid) { return po_adj(kid) === 0; }
 function proband_gt_unknown(kid)  { return po_adj(kid) === -1; }
 
