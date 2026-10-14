@@ -25,7 +25,10 @@ workflow CHANNEL_CREATE_CSV {
         // collect the channel to a CSV file
         .collectFile(keepHeader: true, skip: 1, sort: true, storeDir: "${outdir}/csv") { meta, files ->
             def column_names = meta.keySet().sort()
-            def column_values = column_names.collect{ key -> meta[key] }
+            // An absent optional value (familyPed/familyPheno are held as []) is written as an
+            // empty field. Written as "[]", it fails schema validation when this CSV is passed
+            // back as --input, and is read as a file path on an intermediate-input restart.
+            def column_values = column_names.collect{ key -> (meta[key] == null || meta[key] == []) ? '' : meta[key] }
             def header = column_names.join(",") // create header from the keys of the meta map
             // generate output directory path for each file in files, check if they exist
             def files_path = files.collect { outfile ->

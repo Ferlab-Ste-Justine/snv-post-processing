@@ -1,0 +1,47 @@
+nextflow_workflow {
+
+    name "Test Subworkflow CHANNEL_CREATE_CSV"
+    script "../main.nf"
+    workflow "CHANNEL_CREATE_CSV"
+
+    tag "subworkflows"
+    tag "subworkflows_local"
+    tag "channel_create_csv"
+
+    test("absent familyPed and familyPheno are written as empty fields") {
+        // The pipeline holds an absent familyPed/familyPheno as []. Written as "[]", the
+        // CSV fails schema validation when passed back as --input, and is read as a file
+        // path on an intermediate-input restart (BIOINFO-240).
+        when {
+            params {
+                outdir = "$outputDir"
+            }
+            workflow {
+                """
+                def vcf = file("\${projectDir}/subworkflows/local/slivar_inheritance/tests/fixtures/moi_cases.vcf.gz", checkIfExists: true)
+                def tbi = file("\${projectDir}/subworkflows/local/slivar_inheritance/tests/fixtures/moi_cases.vcf.gz.tbi", checkIfExists: true)
+                input[0] = Channel.of(
+                    [ [ id:'fam1', familyId:'fam1', sequencingType:'WGS', familyPed:'fam1.ped', familyPheno:'fam1.yml' ], vcf, tbi ],
+                    [ [ id:'fam2', familyId:'fam2', sequencingType:'WES', familyPed:[], familyPheno:[] ], vcf, tbi ]
+                )
+                input[1] = 'ensemblvep'
+                input[2] = params.outdir
+                input[3] = []
+                """
+            }
+        }
+
+        then {
+            def lines = path("$outputDir/csv/ensemblvep.csv").readLines()
+
+            assertAll(
+                { assert workflow.success },
+                { assert lines[0] == 'familyId,familyPed,familyPheno,id,sequencingType,vcf,tbi' },
+                { assert lines.size() == 3 },
+                { assert lines.find { it.startsWith('fam1,') }.startsWith('fam1,fam1.ped,fam1.yml,fam1,WGS,') },
+                { assert lines.find { it.startsWith('fam2,') }.startsWith('fam2,,,fam2,WES,') },
+                { assert !lines.any { it.contains('[]') } }
+            )
+        }
+    }
+}

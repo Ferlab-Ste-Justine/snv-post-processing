@@ -627,6 +627,8 @@ function isPseudoautosomal(chrom, pos) {
 // (in Python an AD of 0 becomes None and short-circuits the check).
 // JT: Put more meaningful variables.
 function po_adj(individual) {
+  // A parent who isn't in the family (a duo) counts as unknown, as in Radiant.
+  if (individual === null) { return -1; }
   var alt = individual.alts;
   if (alt === -1 || alt === undefined) { return -1; }
   if (typeof individual.AD !== "undefined" && individual.AD.length > 1) {
@@ -639,14 +641,15 @@ function po_adj(individual) {
 }
 
 // chrom/pos: pass variant.CHROM, variant.POS. kid/dad/mom: slivar sample
-// objects (need .alts and, for kid, .sex -- "male" / "female").
+// objects (need .alts and, for kid, .sex -- "male" / "female"); dad or mom is
+// null when that parent isn't in the family.
 function parental_origin(chrom, pos, kid, dad, mom) {
   // Every lookup table below assumes the kid is a confirmed carrier (dosage
   // 1 or 2). A hom-ref kid, or one po_adj() downgrades to unknown, gets no
-  // po_* tag at all; the --trio non_carrier_proband / unknown_proband_genotype
-  // tags say why instead. Checked before any lookup because the X-son and Y
-  // tables are keyed on the parents only and would otherwise label a hom-ref
-  // son (e.g. MOTHER when mom is het).
+  // po_* tag at all; non_carrier_proband / unknown_proband_genotype (trios) or
+  // the family's unknown_*_genotype tag (duos) say why instead. Checked before
+  // any lookup because the X-son and Y tables are keyed on the parents only
+  // and would otherwise label a hom-ref son (e.g. MOTHER when mom is het).
   var k = po_adj(kid);
   if (k === 0 || k === -1) return NO_ORIGIN;
 
@@ -684,19 +687,25 @@ function parental_origin(chrom, pos, kid, dad, mom) {
   return AUTOSOMAL_ORIGINS[k + "_" + d + "_" + m] || UNKNOWN;
 }
 
-// Example usage:
+// Entry point for --sample-expr: parental origin for any child with at least
+// one parent in the family, so duos get it as well as trios. A sample with no
+// parent in the family (a solo, a sibship, the parents themselves) gets no tag.
+// When a child's PED names a parent who isn't in the VCF, slivar drops BOTH of
+// the child's parent links, so that child looks parentless here and gets no tag.
+function sample_parental_origin(chrom, pos, s) {
+  var dad = ("dad" in s) ? s.dad : null;
+  var mom = ("mom" in s) ? s.mom : null;
+  if (dad === null && mom === null) return NO_ORIGIN;
+  return parental_origin(chrom, pos, s, dad, mom);
+}
+
+// Example usage (conf/slivar.config sets all nine labels this way):
 //
-//   slivar expr --js slivar-parental-origin.js \
+//   slivar expr --js slivar-functions.js \
 //     --vcf annotated.vcf.gz --ped family.ped \
-//     --trio "po_denovo:parental_origin(variant.CHROM, variant.POS, kid, dad, mom) == 'DENOVO'" \
-//     --trio "po_mother:parental_origin(variant.CHROM, variant.POS, kid, dad, mom) == 'MOTHER'" \
-//     --trio "po_father:parental_origin(variant.CHROM, variant.POS, kid, dad, mom) == 'FATHER'" \
-//     --trio "po_both:parental_origin(variant.CHROM, variant.POS, kid, dad, mom) == 'BOTH'" \
-//     --trio "po_ambiguous:parental_origin(variant.CHROM, variant.POS, kid, dad, mom) == 'AMBIGUOUS'" \
-//     --trio "po_possible_denovo:parental_origin(variant.CHROM, variant.POS, kid, dad, mom) == 'POSSIBLE_DENOVO'" \
-//     --trio "po_possible_mother:parental_origin(variant.CHROM, variant.POS, kid, dad, mom) == 'POSSIBLE_MOTHER'" \
-//     --trio "po_possible_father:parental_origin(variant.CHROM, variant.POS, kid, dad, mom) == 'POSSIBLE_FATHER'" \
-//     --trio "po_unknown:parental_origin(variant.CHROM, variant.POS, kid, dad, mom) == 'UNKNOWN'" \
+//     --sample-expr "po_denovo:sample_parental_origin(variant.CHROM, variant.POS, sample) == 'DENOVO'" \
+//     --sample-expr "po_mother:sample_parental_origin(variant.CHROM, variant.POS, sample) == 'MOTHER'" \
+//     ...
 //     -o out.vcf.gz
 //
 // The QLIN compound-het step ("Parental origin is Mother or Father") is

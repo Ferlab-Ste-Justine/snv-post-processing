@@ -85,6 +85,9 @@ nextflow_workflow {
     }
 
     test("moi_tags-absent_parent") {
+        // The pipeline rejects such PEDs before this subworkflow runs
+        // (validatePedAgainstVcf, BIOINFO-240); this test keeps the JS helpers safe
+        // if one reaches slivar anyway, e.g. when the subworkflow is called directly.
         // Every family's PED names a parent who isn't in the VCF. slivar then
         // omits `kids` on that parent's children, and an expression that reads a
         // missing attribute throws -- which slivar counts as false, silently
@@ -151,6 +154,49 @@ nextflow_workflow {
                 // Family-level, so set on every record: A1 and A3 lack a mother, A2 a father.
                 { assert infoAt['chr1:1000']['unknown_mother_genotype'] == ['a1kid', 'a1dad', 'a3kid'] as Set },
                 { assert infoAt['chr1:1000']['unknown_father_genotype'] == ['a2kid', 'a2mom'] as Set }
+            )
+        }
+    }
+
+    test("parental_origin-duos") {
+        // Runs the real conf/slivar.config on the trio_gating fixture (one record:
+        // every child het, every sequenced parent hom-ref). Parental origin is set
+        // per sample, so duos get it as well as trios (BIOINFO-240): the duo kids'
+        // missing parent counts as unknown, giving po_possible_denovo. Parents, the
+        // solo and the sibship get no tag, nor does kid2, whose PED father isn't in
+        // the VCF (slivar then drops both of kid2's parent links).
+        when {
+            params {
+                outdir = "$outputDir"
+                slivar_gnomad_gnotate = null
+            }
+            workflow {
+                """
+                input[0] = Channel.of([
+                    [ id:'trio_gating' ],
+                    file("\${projectDir}/subworkflows/local/slivar_inheritance/tests/fixtures/trio_gating.vcf.gz", checkIfExists: true),
+                    file("\${projectDir}/subworkflows/local/slivar_inheritance/tests/fixtures/trio_gating.vcf.gz.tbi", checkIfExists: true),
+                    file("\${projectDir}/subworkflows/local/slivar_inheritance/tests/fixtures/trio_gating.ped", checkIfExists: true)
+                ])
+                input[1] = []
+                input[2] = []
+                input[3] = []
+                input[4] = file("\${projectDir}/assets/slivar-functions.js", checkIfExists: true)
+                """
+            }
+        }
+
+        then {
+            def line = path(workflow.out.vcf_tbi.get(0).get(1)).linesGzip.find { !it.startsWith('#') }
+            // po_* tag -> set of sample IDs
+            def po = line.split('\t')[7].split(';').findAll { it.startsWith('po_') }.collectEntries { field ->
+                def (key, value) = field.split('=', 2)
+                [ (key): value.split(',') as Set ]
+            }
+
+            assertAll(
+                { assert workflow.success },
+                { assert po == [ po_denovo: ['kid'] as Set, po_possible_denovo: ['duokid', 'duokid2'] as Set ] }
             )
         }
     }

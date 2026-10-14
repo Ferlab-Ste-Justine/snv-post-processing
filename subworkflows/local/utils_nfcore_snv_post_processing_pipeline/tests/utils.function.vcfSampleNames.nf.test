@@ -1,0 +1,42 @@
+nextflow_function {
+
+    name "Test Subworkflow UTILS_NFCORE_SNV_POST_PROCESSING_PIPELINE vcfSampleNames function"
+    script "subworkflows/local/utils_nfcore_snv_post_processing_pipeline/utils.nf"
+    tag "local"
+
+    function "vcfSampleNames"
+
+    test("Test Function vcfSampleNames - multi-sample fixture") {
+        when {
+            function {
+                """
+                input[0] = file("\${projectDir}/subworkflows/local/slivar_inheritance/tests/fixtures/trio_gating.vcf.gz", checkIfExists: true)
+                """
+            }
+        }
+        then {
+            assertAll(
+                { assert function.success },
+                { assert function.result == ['kid', 'dad', 'mom', 'solo1', 'duokid', 'duomom', 'kid2', 'mom2', 'duokid2', 'duodad', 'sib1', 'sib2'] }
+            )
+        }
+    }
+
+    test("Test Function vcfSampleNames - header spanning several bgzip blocks") {
+        // This gVCF's header is ~178 KB, so the #CHROM line sits several 64 KB
+        // bgzip blocks into the file.
+        when {
+            function {
+                """
+                input[0] = file("\${projectDir}/data-test/gvcf/NA19238.chr22_50000000-51000000.gvcf.gz", checkIfExists: true)
+                """
+            }
+        }
+        then {
+            assertAll(
+                { assert function.success },
+                { assert function.result == ['NA19238'] }
+            )
+        }
+    }
+}
