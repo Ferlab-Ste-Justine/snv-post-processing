@@ -14,6 +14,9 @@
 //     informative parent, single-parent + sibling families, and solos.
 //   - het_side covers compound-het detection for any non-trio family; trios
 //     use the transmission-aware comphet_side(kid, mom, dad) via --trio.
+//   - unknown_*_genotype / non_carrier_proband say why a family or proband
+//     can't get a transmission mode (Radiant's values; see the section
+//     "Transmission-mode sentinels" below).
 
 // ---------------------------------------------------------------------------
 // Quality config + hq filters
@@ -85,7 +88,7 @@ function segregating_recessive(s) {
   if (variant.CHROM == "chrX" || variant.CHROM == "X") return segregating_recessive_x(s);
   if (s.affected) return s.hom_alt;
   // Unaffected: stricter rule for parents, permissive for sibs.
-  if (s.kids && s.kids.length > 0) return s.het;
+  if (has_kids_in_fam(s)) return s.het;
   return s.het || s.hom_ref;
 }
 
@@ -149,8 +152,9 @@ function segregating_dominant_x(s) {
   if (!s.affected) return hq1(s, true) && s.hom_ref;
 
   if (s.sex == "male") {
-    for (var i=0; i < s.kids.length; i++) {
-      var kid = s.kids[i];
+    var kids = ("kids" in s) ? s.kids : [];
+    for (var i=0; i < kids.length; i++) {
+      var kid = kids[i];
       // Only daughters of an affected dad are required to be affected.
       if (kid.sex == "female" && !kid.affected) return false;
     }
@@ -178,13 +182,27 @@ function segregating_dominant_x(s) {
 function is_autosomal() { return variant.CHROM !== "X" && variant.CHROM !== "chrX"; }
 function is_x_linked()  { return variant.CHROM === "X" || variant.CHROM === "chrX"; }
 
+// When the PED names a parent who isn't in the VCF, slivar omits `kids` on
+// that parent's children (see "Transmission-mode sentinels" below). Reading a
+// missing attribute throws, and slivar then counts the whole expression as
+// false, silently dropping its tag. Use this instead of reading s.kids.
+function has_kids_in_fam(s) { return ("kids" in s) && s.kids.length > 0; }
+
 // True iff any family member is BOTH affected AND has children in the
-// family (i.e. they're an affected parent we observe). Gates `dominant` /
-// `x_dominant` so they don't fire on de novo configurations.
+// family (i.e. they're an affected parent we observe). Gates
+// `autosomal_dominant` / `x_linked_dominant` so they don't fire on de novo
+// configurations.
 function has_aff_parent(fam) {
   for (var i=0; i<fam.length; i++) {
     var s = fam[i];
-    if (s.affected && s.kids && s.kids.length > 0) return true;
+    if (s.affected && has_kids_in_fam(s)) return true;
+  }
+  return false;
+}
+
+function has_affected_of_sex(fam, sex) {
+  for (var i=0; i<fam.length; i++) {
+    if (fam[i].affected && fam[i].sex == sex) return true;
   }
   return false;
 }
@@ -206,7 +224,7 @@ function present_parent_hom_alt(fam) {
   for (var i=0; i<fam.length; i++) {
     var s = fam[i];
     if (s.affected) continue;
-    if (!(s.kids && s.kids.length > 0)) continue;  // skip non-parents (siblings)
+    if (!has_kids_in_fam(s)) continue;  // skip non-parents (siblings)
     if (s.hom_alt && hq1(s)) return true;
   }
   return false;
@@ -232,7 +250,7 @@ function proband_has_both_parents(fam) {
 function no_parents_in_fam(fam) {
   for (var i=0; i<fam.length; i++) {
     var s = fam[i];
-    if (s.kids && s.kids.length > 0) return false;
+    if (has_kids_in_fam(s)) return false;
   }
   return true;
 }
@@ -252,6 +270,14 @@ function moi_dominant(fam)    { return is_autosomal() && has_aff_parent(fam) && 
 function moi_x_denovo(fam)    { return is_x_linked()  && fam.every(segregating_denovo_x); }
 function moi_x_recessive(fam) { return is_x_linked()  && !no_parents_in_fam(fam) && fam.every(segregating_recessive_x); }
 function moi_x_dominant(fam)  { return is_x_linked()  && has_aff_parent(fam) && fam.every(segregating_dominant_x); }
+
+// Radiant names an X-linked de novo by the child's sex: a daughter's (het) is
+// x_linked_dominant_de_novo, a son's (hemizygous) is x_linked_recessive_de_novo.
+// moi_x_denovo only passes when every affected member has both parents in the
+// family, so every affected member is a de novo child here. Affected siblings
+// of both sexes would set both tags.
+function moi_x_denovo_female(fam) { return moi_x_denovo(fam) && has_affected_of_sex(fam, "female"); }
+function moi_x_denovo_male(fam)   { return moi_x_denovo(fam) && has_affected_of_sex(fam, "male"); }
 
 // Uniparental disomy: an affected proband is hom_alt and exactly ONE parent is
 // hom_ref, meaning both copies of the chromosome came from the carrier parent
@@ -324,6 +350,64 @@ function moi_candidate(fam) {
   return false;
 }
 
+
+// ---------------------------------------------------------------------------
+// Transmission-mode sentinels
+// ---------------------------------------------------------------------------
+// Port of the early returns in radiant/tasks/vcf/snv/germline/occurrence.py::
+// compute_transmission_mode(); the tag names in conf/slivar.config are
+// Radiant's values verbatim. An "unknown" parent here is one that isn't in
+// the family at all (not sequenced). A parent who is in the family but has
+// no usable call is a different case, covered by the po_possible_* tags.
+//
+// The parent checks are family-level (--family-expr). The proband checks run
+// per kid via --trio, so they only fire in complete trios -- as in Radiant,
+// where a missing parent takes precedence over the proband's genotype.
+//
+// One deliberate departure: Radiant only computes a transmission mode when at
+// least one parent is present, so it never actually returns
+// unknown_parents_genotype. Here it fires for solos and sibships.
+//
+// Parents are found as members with children in the family, by sex, rather
+// than through the kid's mom/dad links: when the PED names a parent who isn't
+// in the VCF, slivar (0.3.1) drops the kid's `kids` attribute and, when the
+// missing parent is the father, the kid's `mom` link too. So a duo whose PED
+// names an unsequenced father would look parentless.
+
+// BIOINFO-239: When one PED parent is missing from the VCF, slivar can drop the child's link to the other parent.
+// the helper finds parents from the other direction: anyone in the family with children there is a parent,
+// and their PED sex says whether they're the father or the mother.
+function has_parent_of_sex(fam, sex) {
+  for (var i=0; i<fam.length; i++) {
+    if (has_kids_in_fam(fam[i]) && fam[i].sex == sex) return true;
+  }
+  return false;
+}
+
+// BIOINFO-239: nobody in the family has children there (solos, sibships);
+function moi_unknown_parents_genotype(fam) {
+  for (var i=0; i<fam.length; i++) {
+    if (has_kids_in_fam(fam[i])) return false;
+  }
+  return true;
+}
+
+// BIOINFO-239: a mother is present, no father;
+function moi_unknown_father_genotype(fam) {
+  return has_parent_of_sex(fam, "female") && !has_parent_of_sex(fam, "male");
+}
+
+// BIOINFO-239: a father is present, no mother;
+function moi_unknown_mother_genotype(fam) {
+  return has_parent_of_sex(fam, "male") && !has_parent_of_sex(fam, "female");
+}
+
+// BIOINFO-239: Proband genotype after the same low-depth downgrade parental_origin() uses
+// (po_adj): 0 = hom-ref, -1 = no-call or too few reads to trust.
+// Here, every trio child who loses their po_* tag gets exactly one of the two explanations.
+function proband_non_carrier(kid) { return po_adj(kid) === 0; }
+function proband_gt_unknown(kid)  { return po_adj(kid) === -1; }
+
 /*
 
 ##########################################
@@ -374,6 +458,9 @@ var POSSIBLE_DENOVO = "POSSIBLE_DENOVO";
 var POSSIBLE_MOTHER = "POSSIBLE_MOTHER";
 var POSSIBLE_FATHER = "POSSIBLE_FATHER";
 var UNKNOWN = "UNKNOWN";
+// Returned when the proband is hom-ref or has no usable call: no po_* tag
+// fires, and non_carrier_proband / unknown_proband_genotype says why.
+var NO_ORIGIN = null;
 // JT: suggestion to keep 3 or 4 values only : DENOVO/MOTHER/FATHER/BOTH (Bi-parental) /UNKNOWN
 // Bi-parental: for homozygous-recessive cases where both parents are obligate carriers
 
@@ -426,8 +513,8 @@ var AUTOSOMAL_ORIGINS = { // i.e. non-sex chromosomes AND PAR regions
 // X, kid.sex == "male", NON-PAR (i.e. Sex chromosomes) only (true hemizygous -- PAR calls are
 // routed to AUTOSOMAL_ORIGINS before this table is ever consulted, so there
 // is no more haploid-vs-diploid ambiguity to resolve here). keyed "dad_mom"
-// dosage. kid.alts is always 2 (a haploid call can't be "het"; dosage 0 is
-// a non-carrier and parental_origin is only ever evaluated for a carrier).
+// dosage. kid.alts is always 2 (a haploid call can't be "het"; a dosage-0
+// non-carrier returns NO_ORIGIN in parental_origin before this lookup).
 // Outside PAR, dad's X is never transmitted to a son -- his genotype here
 // is diagnostic context only, never the true source of the son's allele.
 // dad_mom. Only 2 numbers (not 3) because kid dosage is always 2
@@ -555,12 +642,13 @@ function po_adj(individual) {
 // objects (need .alts and, for kid, .sex -- "male" / "female").
 function parental_origin(chrom, pos, kid, dad, mom) {
   // Every lookup table below assumes the kid is a confirmed carrier (dosage
-  // 1 or 2) -- none of them has a "-1" entry on the kid side. po_adj() can
-  // downgrade a low-depth het/hom-alt kid call to -1, so that case is
-  // resolved to UNKNOWN immediately rather than falling through to an
-  // unpopulated table key.
+  // 1 or 2). A hom-ref kid, or one po_adj() downgrades to unknown, gets no
+  // po_* tag at all; the --trio non_carrier_proband / unknown_proband_genotype
+  // tags say why instead. Checked before any lookup because the X-son and Y
+  // tables are keyed on the parents only and would otherwise label a hom-ref
+  // son (e.g. MOTHER when mom is het).
   var k = po_adj(kid);
-  if (k === -1) return UNKNOWN;
+  if (k === 0 || k === -1) return NO_ORIGIN;
 
   // dad/mom are passed through as-is (no early-return): AUTOSOMAL_ORIGINS,
   // X_DAUGHTER_ORIGINS, and X_SON_ORIGINS already have full "-1" coverage on

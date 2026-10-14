@@ -7,3 +7,7 @@ FAMDUO	duomom	0	0	2	1
 FAMPED3	kid2	dad2	mom2	1	2
 FAMPED3	dad2	0	0	1	1
 FAMPED3	mom2	0	0	2	1
+FAMDUOF	duokid2	duodad	0	1	2
+FAMDUOF	duodad	0	0	1	1
+FAMSIB	sib1	0	0	1	2
+FAMSIB	sib2	0	0	2	1

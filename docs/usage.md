@@ -252,16 +252,16 @@ Slivar output is always written to the `slivar` subfolder within the main output
 
 #### Parental origin
 
-For families with a full trio (affected proband + both parents), the slivar step additionally tags each variant with its most likely parental origin (`po_denovo`, `po_mother`, `po_father`, `po_both`, `po_ambiguous`, `po_possible_denovo`, `po_possible_mother`, `po_possible_father`, `po_unknown`), computed by `parental_origin()` in `assets/slivar-functions.js`. Origin is resolved separately for autosomal/PAR, X (son/daughter), and Y sites, and genotype calls backed by very low allele depth are downgraded to `po_unknown` rather than trusted. Non-trio families do not get parental-origin tags. See [output.md](output.md#slivar-step-slivar) for what each tag means.
+For families with a full trio (affected proband + both parents), the slivar step additionally tags each variant with its most likely parental origin (`po_denovo`, `po_mother`, `po_father`, `po_both`, `po_ambiguous`, `po_possible_denovo`, `po_possible_mother`, `po_possible_father`, `po_unknown`), computed by `parental_origin()` in `assets/slivar-functions.js`. Origin is resolved separately for autosomal/PAR, X (son/daughter), and Y sites, and genotype calls backed by very low allele depth are treated as unknown rather than trusted. A child who is hom-ref or whose genotype is unknown gets `non_carrier_proband` or `unknown_proband_genotype` instead of a parental-origin tag. Non-trio families do not get parental-origin tags; they get `unknown_father_genotype`, `unknown_mother_genotype` or `unknown_parents_genotype` instead. See [output.md](output.md#slivar-step-slivar) for what each tag means.
 
-This relies on the ploidy normalization described above in [Starting with normalization](#starting-with-normalization---step-normalize) — without it, hemizygous X/Y calls from some callers would otherwise resolve to `po_unknown`.
+This relies on the ploidy normalization described above in [Starting with normalization](#starting-with-normalization---step-normalize) — without it, hemizygous X/Y calls from some callers would otherwise come out as unknown (`po_unknown` or `unknown_proband_genotype`).
 
 ### Customize versions and commands
 
 If needed, it is possible to customize the options passed to the vep command by overriding the ext.args directive for the
 ENSEMBLVEP_VEP process. See [conf/modules.config](../conf/modules.config).
 
-The slivar expressions and the bcftools annotate command can also be tuned via the `SLIVAR_EXPR`, `SLIVAR_COMPOUNDHETS`, and `BCFTOOLS_ANNOTATE` `withName` blocks in [conf/modules.config](../conf/modules.config).
+The slivar expressions and the bcftools annotate command can also be tuned via the `SLIVAR_EXPR`, `SLIVAR_COMPOUNDHETS`, and `BCFTOOLS_ANNOTATE` `withName` blocks in [conf/slivar.config](../conf/slivar.config).
 
 ### Stub mode and quick tests
 

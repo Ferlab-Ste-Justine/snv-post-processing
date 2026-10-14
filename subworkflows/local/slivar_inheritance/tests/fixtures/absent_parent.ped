@@ -1,0 +1,8 @@
+A1	a1kid	a1dad	a1mom	2	2
+A1	a1dad	0	0	1	2
+A2	a2kid	a2dad	a2mom	1	2
+A2	a2mom	0	0	2	2
+A2	a2dad	0	0	1	1
+A3	a3kid	a3dad	a3mom	1	2
+A3	a3sib	a3dad	a3mom	2	1
+A3	a3dad	0	0	1	1
