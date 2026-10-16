@@ -1,0 +1,14 @@
+FAM1	kid	dad	mom	1	2
+FAM1	dad	0	0	1	1
+FAM1	mom	0	0	2	1
+FAMSOLO	solo1	0	0	1	2
+FAMDUO	duokid	0	duomom	1	2
+FAMDUO	duomom	0	0	2	1
+FAMPED3	kid2	0	mom2	1	2
+FAMPED3	mom2	0	0	2	1
+FAMPED3	dad2	0	0	1	1
+FAMDUOF	duokid2	duodad	0	1	2
+FAMDUOF	duodad	0	0	1	1
+FAMSIB	sib1	0	0	1	2
+FAMSIB	sib2	0	0	2	1
+FAMX	notsequenced	ghostdad	ghostmom	1	2

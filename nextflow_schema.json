@@ -575,6 +575,11 @@
                     "help_text": "Defaults to the bundled `assets/slivar-functions.js`. Override only if you need custom segregation/quality functions.",
                     "hidden": true
                 },
+                "skip_ped_validation": {
+                    "type": "boolean",
+                    "description": "Run slivar even when a family's PED doesn't match its VCF, with warnings instead of stopping the run.",
+                    "help_text": "By default the pipeline stops before slivar if a VCF sample has no row in the family's PED, or if a sequenced sample's father or mother is named in the PED but isn't in the VCF (write an unsequenced parent as `0`). Set this, e.g. for tests or exploratory runs, to report those problems as warnings and continue. slivar's inheritance and parental-origin tags may then be missing or wrong for the affected families."
+                },
                 "gnomad_popmax_af_rare": {
                     "type": "number",
                     "default": 0.01,

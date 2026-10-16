@@ -25,6 +25,7 @@ include { CHANNEL_CREATE_CSV as CHANNEL_CREATE_CSV_EXOMISER } from '../subworkfl
 include { isExomiserToolIncluded  } from '../subworkflows/local/utils_nfcore_snv_post_processing_pipeline/utils'
 include { isVepToolIncluded       } from '../subworkflows/local/utils_nfcore_snv_post_processing_pipeline/utils'
 include { isToolIncluded          } from '../subworkflows/local/utils_nfcore_snv_post_processing_pipeline/utils'
+include { validatePedAgainstVcf   } from '../subworkflows/local/utils_nfcore_snv_post_processing_pipeline/utils'
 
 /*
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -308,7 +309,11 @@ workflow SNV_POST_PROCESSING {
                 }
                 meta.familyPed
             }
-            .map{ meta, vcf, tbi -> [meta, vcf, tbi, file(meta.familyPed)] }
+            .map{ meta, vcf, tbi ->
+                def ped = file(meta.familyPed)
+                validatePedAgainstVcf(meta.familyId, vcf, ped, params.skip_ped_validation)
+                [meta, vcf, tbi, ped]
+            }
 
         SLIVAR_INHERITANCE(ch_slivar_input, slivarRegionsBed, slivarExcludeBed, slivarGnotateFiles, slivarJs)
     }

@@ -128,8 +128,9 @@ workflow PIPELINE_INITIALISATION {
                 .splitCsv(header: true)
                 .map { row ->
                     def meta = row.subMap('id','familyId', 'sequencingType')
-                    meta += ['familyPheno': row.familyPheno ?: [] ]
-                    meta += ['familyPed': row.familyPed ?: [] ]
+                    // CSVs written before BIOINFO-240 hold a literal "[]" for an absent value.
+                    meta += ['familyPheno': row.familyPheno && row.familyPheno != '[]' ? row.familyPheno : [] ]
+                    meta += ['familyPed': row.familyPed && row.familyPed != '[]' ? row.familyPed : [] ]
                     def vcf = file(row.vcf, checkIfExists: true)
                     def tbi = row.tbi ? file(row.tbi, checkIfExists:true) : (file("${vcf}.tbi").exists() ? file("${vcf}.tbi") : [])
                     if (!tbi) {

@@ -71,8 +71,8 @@ nextflow_process {
     }
 
     test("parental_origin-po_validation") {
-        // Reproduces the po_* and proband-genotype --trio expressions from
-        // conf/slivar.config verbatim (the AF-gate clauses there are empty unless
+        // Reproduces the po_* --sample-expr and proband-genotype --trio expressions
+        // from conf/slivar.config verbatim (the AF-gate clauses there are empty unless
         // slivar_gnomad_gnotate/slivar_topmed_gnotate are set, which they aren't
         // here) against the real assets/slivar-functions.js and a fixture VCF that
         // was hand-built to hit all 9 possible parental_origin() return labels,
@@ -86,15 +86,15 @@ nextflow_process {
                     "--info 'variant.FILTER == \"PASS\" && variant.ALT[0] != \"*\" && INFO.impactful'",
                     "--trio 'non_carrier_proband:proband_non_carrier(kid)'",
                     "--trio 'unknown_proband_genotype:proband_gt_unknown(kid)'",
-                    "--trio \"po_denovo:parental_origin(variant.CHROM, variant.POS, kid, dad, mom) == 'DENOVO'\"",
-                    "--trio \"po_mother:parental_origin(variant.CHROM, variant.POS, kid, dad, mom) == 'MOTHER'\"",
-                    "--trio \"po_father:parental_origin(variant.CHROM, variant.POS, kid, dad, mom) == 'FATHER'\"",
-                    "--trio \"po_both:parental_origin(variant.CHROM, variant.POS, kid, dad, mom) == 'BOTH'\"",
-                    "--trio \"po_ambiguous:parental_origin(variant.CHROM, variant.POS, kid, dad, mom) == 'AMBIGUOUS'\"",
-                    "--trio \"po_possible_denovo:parental_origin(variant.CHROM, variant.POS, kid, dad, mom) == 'POSSIBLE_DENOVO'\"",
-                    "--trio \"po_possible_mother:parental_origin(variant.CHROM, variant.POS, kid, dad, mom) == 'POSSIBLE_MOTHER'\"",
-                    "--trio \"po_possible_father:parental_origin(variant.CHROM, variant.POS, kid, dad, mom) == 'POSSIBLE_FATHER'\"",
-                    "--trio \"po_unknown:parental_origin(variant.CHROM, variant.POS, kid, dad, mom) == 'UNKNOWN'\""
+                    "--sample-expr \"po_denovo:sample_parental_origin(variant.CHROM, variant.POS, sample) == 'DENOVO'\"",
+                    "--sample-expr \"po_mother:sample_parental_origin(variant.CHROM, variant.POS, sample) == 'MOTHER'\"",
+                    "--sample-expr \"po_father:sample_parental_origin(variant.CHROM, variant.POS, sample) == 'FATHER'\"",
+                    "--sample-expr \"po_both:sample_parental_origin(variant.CHROM, variant.POS, sample) == 'BOTH'\"",
+                    "--sample-expr \"po_ambiguous:sample_parental_origin(variant.CHROM, variant.POS, sample) == 'AMBIGUOUS'\"",
+                    "--sample-expr \"po_possible_denovo:sample_parental_origin(variant.CHROM, variant.POS, sample) == 'POSSIBLE_DENOVO'\"",
+                    "--sample-expr \"po_possible_mother:sample_parental_origin(variant.CHROM, variant.POS, sample) == 'POSSIBLE_MOTHER'\"",
+                    "--sample-expr \"po_possible_father:sample_parental_origin(variant.CHROM, variant.POS, sample) == 'POSSIBLE_FATHER'\"",
+                    "--sample-expr \"po_unknown:sample_parental_origin(variant.CHROM, variant.POS, sample) == 'UNKNOWN'\""
                 ].join(" ")
             }
             process {
@@ -119,7 +119,7 @@ nextflow_process {
 
             assertAll(
                 { assert process.success },
-                { assert lines.size() == 20 },
+                { assert lines.size() == 21 },
                 { assert lines.find { it.startsWith("chr1\t1000\t") }.contains("po_denovo=kid") },
                 { assert lines.find { it.startsWith("chr1\t2000\t") }.contains("po_mother=kid") },
                 { assert lines.find { it.startsWith("chr1\t3000\t") }.contains("po_father=kid") },
@@ -131,6 +131,7 @@ nextflow_process {
                 { assert lines.find { it.startsWith("chr1\t9000\t") }.contains("po_possible_denovo=kid") },
                 { assert lines.find { it.startsWith("chr1\t10000\t") }.contains("po_possible_denovo=kid") },
                 { assert lines.find { it.startsWith("chr1\t13000\t") }.contains("po_father=kid") },
+                { assert lines.find { it.startsWith("chr1\t16000\t") }.contains("po_possible_father=kid") },
                 { assert lines.find { it.startsWith("chrX\t3000000\t") }.contains("po_mother=kid") },
                 { assert lines.find { it.startsWith("chrX\t3100000\t") }.contains("po_father=kid") },
                 { assert lines.find { it.startsWith("chrY\t3000000\t") }.contains("po_father=kid") },
@@ -158,28 +159,30 @@ nextflow_process {
     }
 
     test("parental_origin-trio_gating") {
-        // Guards the concern behind BIOINFO-217's parental-origin step: the po_*
-        // --trio expressions must only ever be evaluated for genuinely complete
-        // trios. This fixture packs a real trio alongside a solo sample, a duo
-        // with an unknown father, a duo with an unknown mother, a sibship, and a
-        // family whose PED declares a third member that simply isn't in the VCF --
-        // all sharing one variant record. Only the real trio's kid may end up with
-        // a po_* tag.
+        // Checks which samples get a po_* tag. The fixture packs a real trio
+        // alongside a solo sample, a duo with an unknown father, a duo with an
+        // unknown mother, a sibship, and a family whose PED declares a father who
+        // simply isn't in the VCF -- all sharing one variant record, where every
+        // child is het and every sequenced parent hom-ref. The trio's kid gets
+        // po_denovo; the two duo kids get po_possible_denovo, their missing parent
+        // counting as unknown (BIOINFO-240). Parents, the solo and the sibship get
+        // nothing. kid2 gets nothing either: slivar drops both of its parent links
+        // because its PED father isn't in the VCF.
         when {
             params {
                 args_modules = [
                     "--info 'variant.FILTER == \"PASS\" && variant.ALT[0] != \"*\" && INFO.impactful'",
                     "--trio 'comphet_side:comphet_side(kid, mom, dad)'",
                     "--family-expr 'het_side:moi_het_side(fam)'",
-                    "--trio \"po_denovo:parental_origin(variant.CHROM, variant.POS, kid, dad, mom) == 'DENOVO'\"",
-                    "--trio \"po_mother:parental_origin(variant.CHROM, variant.POS, kid, dad, mom) == 'MOTHER'\"",
-                    "--trio \"po_father:parental_origin(variant.CHROM, variant.POS, kid, dad, mom) == 'FATHER'\"",
-                    "--trio \"po_both:parental_origin(variant.CHROM, variant.POS, kid, dad, mom) == 'BOTH'\"",
-                    "--trio \"po_ambiguous:parental_origin(variant.CHROM, variant.POS, kid, dad, mom) == 'AMBIGUOUS'\"",
-                    "--trio \"po_possible_denovo:parental_origin(variant.CHROM, variant.POS, kid, dad, mom) == 'POSSIBLE_DENOVO'\"",
-                    "--trio \"po_possible_mother:parental_origin(variant.CHROM, variant.POS, kid, dad, mom) == 'POSSIBLE_MOTHER'\"",
-                    "--trio \"po_possible_father:parental_origin(variant.CHROM, variant.POS, kid, dad, mom) == 'POSSIBLE_FATHER'\"",
-                    "--trio \"po_unknown:parental_origin(variant.CHROM, variant.POS, kid, dad, mom) == 'UNKNOWN'\""
+                    "--sample-expr \"po_denovo:sample_parental_origin(variant.CHROM, variant.POS, sample) == 'DENOVO'\"",
+                    "--sample-expr \"po_mother:sample_parental_origin(variant.CHROM, variant.POS, sample) == 'MOTHER'\"",
+                    "--sample-expr \"po_father:sample_parental_origin(variant.CHROM, variant.POS, sample) == 'FATHER'\"",
+                    "--sample-expr \"po_both:sample_parental_origin(variant.CHROM, variant.POS, sample) == 'BOTH'\"",
+                    "--sample-expr \"po_ambiguous:sample_parental_origin(variant.CHROM, variant.POS, sample) == 'AMBIGUOUS'\"",
+                    "--sample-expr \"po_possible_denovo:sample_parental_origin(variant.CHROM, variant.POS, sample) == 'POSSIBLE_DENOVO'\"",
+                    "--sample-expr \"po_possible_mother:sample_parental_origin(variant.CHROM, variant.POS, sample) == 'POSSIBLE_MOTHER'\"",
+                    "--sample-expr \"po_possible_father:sample_parental_origin(variant.CHROM, variant.POS, sample) == 'POSSIBLE_FATHER'\"",
+                    "--sample-expr \"po_unknown:sample_parental_origin(variant.CHROM, variant.POS, sample) == 'UNKNOWN'\""
                 ].join(" ")
             }
             process {
@@ -200,20 +203,15 @@ nextflow_process {
 
         then {
             def line = path(process.out.vcf.get(0).get(1)).linesGzip.find { !it.startsWith('#') }
+            // po_* tag -> set of sample IDs (slivar's sample order within a tag isn't guaranteed)
+            def po = line.split('\t')[7].split(';').findAll { it.startsWith('po_') }.collectEntries { field ->
+                def (key, value) = field.split('=', 2)
+                [ (key): value.split(',') as Set ]
+            }
 
             assertAll(
                 { assert process.success },
-                { assert line.contains("po_denovo=kid") },
-                { assert !line.contains("po_mother=") },
-                { assert !line.contains("po_father=") },
-                { assert !line.contains("po_both=") },
-                { assert !line.contains("po_ambiguous=") },
-                { assert !line.contains("po_possible_denovo=") },
-                { assert !line.contains("po_possible_mother=") },
-                { assert !line.contains("po_possible_father=") },
-                { assert !line.contains("po_unknown=") },
-                // belt-and-suspenders: no po_* tag ever names a non-trio family member
-                { assert !(line =~ /po_\w+=[^;]*\b(solo1|duokid|duomom|kid2|mom2|duokid2|duodad|sib1|sib2)\b/) }
+                { assert po == [ po_denovo: ['kid'] as Set, po_possible_denovo: ['duokid', 'duokid2'] as Set ] }
             )
         }
     }

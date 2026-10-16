@@ -1,0 +1,147 @@
+nextflow_function {
+
+    name "Test Subworkflow UTILS_NFCORE_SNV_POST_PROCESSING_PIPELINE validatePedAgainstVcf function"
+    script "subworkflows/local/utils_nfcore_snv_post_processing_pipeline/utils.nf"
+    tag "local"
+
+    function "validatePedAgainstVcf"
+
+    // The fixtures/ped_vs_vcf PEDs go with the trio_gating VCF, whose samples are:
+    // kid dad mom solo1 duokid duomom kid2 mom2 duokid2 duodad sib1 sib2.
+    // valid.ped has a row for each, writes unsequenced parents as 0, and adds rows
+    // for two relatives who aren't in the VCF. Each other PED breaks one rule.
+
+    test("Test Function validatePedAgainstVcf - complete trios pass") {
+        when {
+            function {
+                """
+                input[0] = "moi_cases"
+                input[1] = file("\${projectDir}/subworkflows/local/slivar_inheritance/tests/fixtures/moi_cases.vcf.gz", checkIfExists: true)
+                input[2] = file("\${projectDir}/subworkflows/local/slivar_inheritance/tests/fixtures/moi_cases.ped", checkIfExists: true)
+                """
+            }
+        }
+        then {
+            assertAll(
+                { assert function.success }
+            )
+        }
+    }
+
+    test("Test Function validatePedAgainstVcf - duos, solo and sibship with unsequenced parents as 0 pass") {
+        when {
+            function {
+                """
+                input[0] = "valid"
+                input[1] = file("\${projectDir}/subworkflows/local/slivar_inheritance/tests/fixtures/trio_gating.vcf.gz", checkIfExists: true)
+                input[2] = file("\${projectDir}/subworkflows/local/utils_nfcore_snv_post_processing_pipeline/tests/fixtures/ped_vs_vcf/valid.ped", checkIfExists: true)
+                """
+            }
+        }
+        then {
+            assertAll(
+                { assert function.success }
+            )
+        }
+    }
+
+    test("Test Function validatePedAgainstVcf - father named but not in the VCF fails") {
+        // The case slivar mishandles: the child would also lose its link to the mother.
+        when {
+            function {
+                """
+                input[0] = "father_not_in_vcf"
+                input[1] = file("\${projectDir}/subworkflows/local/slivar_inheritance/tests/fixtures/trio_gating.vcf.gz", checkIfExists: true)
+                input[2] = file("\${projectDir}/subworkflows/local/utils_nfcore_snv_post_processing_pipeline/tests/fixtures/ped_vs_vcf/father_not_in_vcf.ped", checkIfExists: true)
+                """
+            }
+        }
+        then {
+            assertAll(
+                { assert function.failed },
+                { assert function.stdout.any { it.contains("duokid's father 'absentdad' isn't in the VCF") } },
+                { assert function.stdout.any { it.contains("set --skip_ped_validation") } }
+            )
+        }
+    }
+
+    test("Test Function validatePedAgainstVcf - with --skip_ped_validation, a mismatch only warns") {
+        when {
+            function {
+                """
+                input[0] = "father_not_in_vcf"
+                input[1] = file("\${projectDir}/subworkflows/local/slivar_inheritance/tests/fixtures/trio_gating.vcf.gz", checkIfExists: true)
+                input[2] = file("\${projectDir}/subworkflows/local/utils_nfcore_snv_post_processing_pipeline/tests/fixtures/ped_vs_vcf/father_not_in_vcf.ped", checkIfExists: true)
+                input[3] = true
+                """
+            }
+        }
+        then {
+            // log.warn goes to the Nextflow log, not to stdout
+            def log = path("${metaDir}/nextflow.log").text
+            assertAll(
+                { assert function.success },
+                { assert log.contains("duokid's father 'absentdad' isn't in the VCF") },
+                { assert log.contains("--skip_ped_validation is set, so slivar runs anyway") }
+            )
+        }
+    }
+
+    test("Test Function validatePedAgainstVcf - mother named but not in the VCF fails") {
+        // slivar copes with this one, but the rule is the same for both parents.
+        when {
+            function {
+                """
+                input[0] = "mother_not_in_vcf"
+                input[1] = file("\${projectDir}/subworkflows/local/slivar_inheritance/tests/fixtures/trio_gating.vcf.gz", checkIfExists: true)
+                input[2] = file("\${projectDir}/subworkflows/local/utils_nfcore_snv_post_processing_pipeline/tests/fixtures/ped_vs_vcf/mother_not_in_vcf.ped", checkIfExists: true)
+                """
+            }
+        }
+        then {
+            assertAll(
+                { assert function.failed },
+                { assert function.stdout.any { it.contains("duokid2's mother 'absentmom' isn't in the VCF") } }
+            )
+        }
+    }
+
+    test("Test Function validatePedAgainstVcf - VCF sample without a PED row fails") {
+        // slivar would silently leave sib2 out of the family.
+        when {
+            function {
+                """
+                input[0] = "sample_without_row"
+                input[1] = file("\${projectDir}/subworkflows/local/slivar_inheritance/tests/fixtures/trio_gating.vcf.gz", checkIfExists: true)
+                input[2] = file("\${projectDir}/subworkflows/local/utils_nfcore_snv_post_processing_pipeline/tests/fixtures/ped_vs_vcf/sample_without_row.ped", checkIfExists: true)
+                """
+            }
+        }
+        then {
+            assertAll(
+                { assert function.failed },
+                { assert function.stdout.any { it.contains("VCF samples without a PED row: sib2 ") } }
+            )
+        }
+    }
+
+    test("Test Function validatePedAgainstVcf - PED IDs that match no VCF sample fail") {
+        // e.g. a PED written with different IDs than the VCF's. Without the check,
+        // slivar expr matches nobody and SLIVAR_COMPOUNDHETS later fails with "no trios found".
+        when {
+            function {
+                """
+                input[0] = "ids_mismatch"
+                input[1] = file("\${projectDir}/subworkflows/local/slivar_inheritance/tests/fixtures/trio_gating.vcf.gz", checkIfExists: true)
+                input[2] = file("\${projectDir}/subworkflows/local/utils_nfcore_snv_post_processing_pipeline/tests/fixtures/ped_vs_vcf/ids_mismatch.ped", checkIfExists: true)
+                """
+            }
+        }
+        then {
+            assertAll(
+                { assert function.failed },
+                { assert function.stdout.any { it.contains("VCF samples without a PED row: kid, dad, mom, solo1, duokid, duomom, kid2, mom2, duokid2, duodad, sib1, sib2 ") } }
+            )
+        }
+    }
+}
