@@ -21,8 +21,8 @@ nextflow_workflow {
                 def vcf = file("\${projectDir}/subworkflows/local/slivar_inheritance/tests/fixtures/moi_cases.vcf.gz", checkIfExists: true)
                 def tbi = file("\${projectDir}/subworkflows/local/slivar_inheritance/tests/fixtures/moi_cases.vcf.gz.tbi", checkIfExists: true)
                 input[0] = Channel.of(
-                    [ [ id:'fam1', familyId:'fam1', sequencingType:'WGS', familyPed:'fam1.ped', familyPheno:'fam1.yml' ], vcf, tbi ],
-                    [ [ id:'fam2', familyId:'fam2', sequencingType:'WES', familyPed:[], familyPheno:[] ], vcf, tbi ]
+                    [ [ id:'id1', familyId:'fam1', sequencingType:'WGS', familyPed:'fam1.ped', familyPheno:'fam1.yml' ], vcf, tbi ],
+                    [ [ id:'id2', familyId:'fam2', sequencingType:'WES', familyPed:[], familyPheno:[] ], vcf, tbi ]
                 )
                 input[1] = 'ensemblvep'
                 input[2] = params.outdir
@@ -38,8 +38,8 @@ nextflow_workflow {
                 { assert workflow.success },
                 { assert lines[0] == 'familyId,familyPed,familyPheno,id,sequencingType,vcf,tbi' },
                 { assert lines.size() == 3 },
-                { assert lines.find { it.startsWith('fam1,') }.startsWith('fam1,fam1.ped,fam1.yml,fam1,WGS,') },
-                { assert lines.find { it.startsWith('fam2,') }.startsWith('fam2,,,fam2,WES,') },
+                { assert lines.find { it.startsWith('fam1,') }.startsWith('fam1,fam1.ped,fam1.yml,id1,WGS,') },
+                { assert lines.find { it.startsWith('fam2,') }.startsWith('fam2,,,id2,WES,') },
                 { assert !lines.any { it.contains('[]') } }
             )
         }
