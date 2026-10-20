@@ -45,12 +45,13 @@ nextflow_workflow {
                 def cols = line.split('\t')
                 [ ("${cols[0]}:${cols[1]}".toString()): cols[7].split(';').collect { it.split('=', 2)[0] } as Set ]
             }
-            // Current MoI tag names plus the pre-BIOINFO-239 ones, so a leftover
-            // old name shows up as an unexpected tag.
+            // Current MoI tag names plus the pre-BIOINFO-239 and the BIOINFO-239
+            // `_de_novo` ones, so a leftover old name shows up as an unexpected tag.
             def moiTags = [
-                'autosomal_dominant_de_novo', 'autosomal_dominant', 'autosomal_recessive', 'uniparental_disomy',
-                'x_linked_dominant_de_novo', 'x_linked_recessive_de_novo', 'x_linked_dominant', 'x_linked_recessive',
-                'denovo', 'dominant', 'recessive', 'x_denovo', 'x_dominant', 'x_recessive'
+                'autosomal_dominant_denovo', 'autosomal_dominant', 'autosomal_recessive', 'uniparental_disomy',
+                'x_linked_dominant_denovo', 'x_linked_recessive_denovo', 'x_linked_dominant', 'x_linked_recessive',
+                'denovo', 'dominant', 'recessive', 'x_denovo', 'x_dominant', 'x_recessive',
+                'autosomal_dominant_de_novo', 'x_linked_dominant_de_novo', 'x_linked_recessive_de_novo'
             ] as Set
             def moiAt = { pos -> tagsAt[pos].intersect(moiTags) }
             def line = { pos -> records.find { it.startsWith(pos.replace(':', '\t') + '\t') } }
@@ -60,19 +61,19 @@ nextflow_workflow {
                 { assert records.size() == 10 },
                 // one MoI tag
                 { assert moiAt('chr1:3000') == ['autosomal_dominant'] as Set },
-                { assert moiAt('chr1:4000') == ['autosomal_dominant_de_novo'] as Set },
+                { assert moiAt('chr1:4000') == ['autosomal_dominant_denovo'] as Set },
                 { assert moiAt('chr1:5000') == ['autosomal_recessive'] as Set },
                 { assert moiAt('chr1:6000') == [] as Set },
                 { assert moiAt('chrX:3300000') == ['x_linked_recessive'] as Set },
                 // X de novo is named by the child's sex: daughter c5kid, son c4kid
-                { assert moiAt('chrX:3200000') == ['x_linked_dominant_de_novo'] as Set },
-                { assert line('chrX:3200000').contains('x_linked_dominant_de_novo=c5kid') },
-                { assert line('chrX:3100000').contains('x_linked_recessive_de_novo=c4kid') },
+                { assert moiAt('chrX:3200000') == ['x_linked_dominant_denovo'] as Set },
+                { assert line('chrX:3200000').contains('x_linked_dominant_denovo=c5kid') },
+                { assert line('chrX:3100000').contains('x_linked_recessive_denovo=c4kid') },
                 // two MoI tags on the same record (cases 1-4 in docs/output.md)
                 { assert moiAt('chr1:1000') == ['autosomal_recessive', 'autosomal_dominant'] as Set },
                 { assert moiAt('chrX:3000000') == ['x_linked_recessive', 'x_linked_dominant'] as Set },
                 { assert moiAt('chr1:2000') == ['autosomal_dominant', 'uniparental_disomy'] as Set },
-                { assert moiAt('chrX:3100000') == ['x_linked_recessive_de_novo', 'x_linked_recessive'] as Set },
+                { assert moiAt('chrX:3100000') == ['x_linked_recessive_denovo', 'x_linked_recessive'] as Set },
                 // SLIVAR_COMPOUNDHETS reads the de novo side as denovo_side: the de
                 // novo at 4000 pairs with c5kid's inherited het at 6000. If its
                 // --sample-field fell out of sync with the SLIVAR_EXPR tag name, slivar
@@ -91,7 +92,7 @@ nextflow_workflow {
         // (BIOINFO-241):
         //   chr1:1000  missense,   kid het from mom   -> pairs with 5000
         //   chr1:2000  synonymous, kid het from dad   -> po_father, but no comphet
-        //   chr1:3000  synonymous, kid het de novo    -> autosomal_dominant_de_novo, no comphet
+        //   chr1:3000  synonymous, kid het de novo    -> autosomal_dominant_denovo, no comphet
         //   chr1:4000  intronic,   kid hom-alt        -> autosomal_recessive
         //   chr1:5000  missense,   kid het from dad   -> pairs with 1000
         // Without the gate on the sides, 2000 and 3000 would pair with 1000 as well.
@@ -132,7 +133,7 @@ nextflow_workflow {
                 { assert workflow.success },
                 { assert records.size() == 5 },
                 { assert infoAt['chr1:2000']['po_father'] == ['g1kid'] as Set },
-                { assert infoAt['chr1:3000']['autosomal_dominant_de_novo'] == ['g1kid'] as Set },
+                { assert infoAt['chr1:3000']['autosomal_dominant_denovo'] == ['g1kid'] as Set },
                 { assert infoAt['chr1:3000']['po_denovo'] == ['g1kid'] as Set },
                 { assert infoAt['chr1:4000']['autosomal_recessive'] == ['g1kid'] as Set },
                 { assert infoAt['chr1:4000']['po_both'] == ['g1kid'] as Set },
@@ -192,8 +193,8 @@ nextflow_workflow {
                 } ]
             }
             def moiTags = [
-                'autosomal_dominant_de_novo', 'autosomal_dominant', 'autosomal_recessive', 'uniparental_disomy',
-                'x_linked_dominant_de_novo', 'x_linked_recessive_de_novo', 'x_linked_dominant', 'x_linked_recessive'
+                'autosomal_dominant_denovo', 'autosomal_dominant', 'autosomal_recessive', 'uniparental_disomy',
+                'x_linked_dominant_denovo', 'x_linked_recessive_denovo', 'x_linked_dominant', 'x_linked_recessive'
             ] as Set
             def moiAt = { pos -> infoAt[pos].keySet().intersect(moiTags) }
 

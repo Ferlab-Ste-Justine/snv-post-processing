@@ -243,13 +243,13 @@ You can additionally provide:
 
 The default population-frequency thresholds applied in the inheritance expressions can be tuned via parameters:
 
-| Parameter                    | Default | Used in                                                                                                                                                                     |
-| ---------------------------- | ------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `gnomad_popmax_af_rare`      | `0.01`  | General `--info` rare-variant filter (gates every slivar tag)                                                                                                               |
-| `topmed_af_rare`             | `0.05`  | General `--info` rare-variant filter (gates every slivar tag)                                                                                                               |
-| `gnomad_popmax_af_dominant`  | `0.001` | `autosomal_dominant_de_novo`, `autosomal_dominant`, `x_linked_dominant_de_novo`, `x_linked_recessive_de_novo`, `x_linked_dominant`, and the `denovo_side` compound-het side |
-| `gnomad_popmax_af_recessive` | `0.01`  | `autosomal_recessive`, `uniparental_disomy`, `x_linked_recessive`                                                                                                           |
-| `gnomad_nhomalt`             | `10`    | `comphet_side` and `het_side` compound-het sides                                                                                                                            |
+| Parameter                    | Default | Used in                                                                                                                                                                  |
+| ---------------------------- | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `gnomad_popmax_af_rare`      | `0.01`  | General `--info` rare-variant filter (gates every slivar tag)                                                                                                            |
+| `topmed_af_rare`             | `0.05`  | General `--info` rare-variant filter (gates every slivar tag)                                                                                                            |
+| `gnomad_popmax_af_dominant`  | `0.001` | `autosomal_dominant_denovo`, `autosomal_dominant`, `x_linked_dominant_denovo`, `x_linked_recessive_denovo`, `x_linked_dominant`, and the `denovo_side` compound-het side |
+| `gnomad_popmax_af_recessive` | `0.01`  | `autosomal_recessive`, `uniparental_disomy`, `x_linked_recessive`                                                                                                        |
+| `gnomad_nhomalt`             | `10`    | `comphet_side` and `het_side` compound-het sides                                                                                                                         |
 
 The `--info` rare-variant filter gates every slivar tag. Apart from it, the slivar step doesn't restrict tags by consequence: only the compound-het sides are limited to variants slivar considers impactful.
 
