@@ -73,13 +73,72 @@ nextflow_workflow {
                 { assert moiAt('chrX:3000000') == ['x_linked_recessive', 'x_linked_dominant'] as Set },
                 { assert moiAt('chr1:2000') == ['autosomal_dominant', 'uniparental_disomy'] as Set },
                 { assert moiAt('chrX:3100000') == ['x_linked_recessive_de_novo', 'x_linked_recessive'] as Set },
-                // SLIVAR_COMPOUNDHETS reads autosomal_dominant_de_novo by name: the de
+                // SLIVAR_COMPOUNDHETS reads the de novo side as denovo_side: the de
                 // novo at 4000 pairs with c5kid's inherited het at 6000. If its
-                // --sample-field fell out of sync with the tag name, slivar would
-                // silently ignore it and neither record would get slivar_comphet.
+                // --sample-field fell out of sync with the SLIVAR_EXPR tag name, slivar
+                // would silently ignore it and neither record would get slivar_comphet.
                 { assert tagsAt['chr1:4000'].contains('slivar_comphet') },
                 { assert tagsAt['chr1:6000'].contains('slivar_comphet') },
                 { assert records.count { it.contains('slivar_comphet=') } == 2 }
+            )
+        }
+    }
+
+    test("impactful_gate") {
+        // Runs the real conf/slivar.config on one trio (g1kid, affected daughter) with
+        // five GENE7 records. Inheritance and parental-origin tags are set whatever the
+        // consequence, but only impactful variants can be a compound-het side
+        // (BIOINFO-241):
+        //   chr1:1000  missense,   kid het from mom   -> pairs with 5000
+        //   chr1:2000  synonymous, kid het from dad   -> po_father, but no comphet
+        //   chr1:3000  synonymous, kid het de novo    -> autosomal_dominant_de_novo, no comphet
+        //   chr1:4000  intronic,   kid hom-alt        -> autosomal_recessive
+        //   chr1:5000  missense,   kid het from dad   -> pairs with 1000
+        // Without the gate on the sides, 2000 and 3000 would pair with 1000 as well.
+        when {
+            params {
+                outdir = "$outputDir"
+                slivar_gnomad_gnotate = null
+            }
+            workflow {
+                """
+                input[0] = Channel.of([
+                    [ id:'impactful_gate' ],
+                    file("\${projectDir}/subworkflows/local/slivar_inheritance/tests/fixtures/impactful_gate.vcf.gz", checkIfExists: true),
+                    file("\${projectDir}/subworkflows/local/slivar_inheritance/tests/fixtures/impactful_gate.vcf.gz.tbi", checkIfExists: true),
+                    file("\${projectDir}/subworkflows/local/slivar_inheritance/tests/fixtures/impactful_gate.ped", checkIfExists: true)
+                ])
+                input[1] = []
+                input[2] = []
+                input[3] = []
+                input[4] = file("\${projectDir}/assets/slivar-functions.js", checkIfExists: true)
+                """
+            }
+        }
+
+        then {
+            def records = path(workflow.out.vcf_tbi.get(0).get(1)).linesGzip.findAll { !it.startsWith('#') }
+            // "CHROM:POS" -> [INFO tag name: set of comma-separated values]
+            def infoAt = records.collectEntries { line ->
+                def cols = line.split('\t')
+                [ ("${cols[0]}:${cols[1]}".toString()): cols[7].split(';').collectEntries { kv ->
+                    def parts = kv.split('=', 2)
+                    [ (parts[0]): (parts.size() > 1 ? parts[1].split(',') as Set : [] as Set) ]
+                } ]
+            }
+            def comphetAt = records.findAll { it.contains('slivar_comphet=') }.collect { it.split('\t')[0..1].join(':') } as Set
+
+            assertAll(
+                { assert workflow.success },
+                { assert records.size() == 5 },
+                { assert infoAt['chr1:2000']['po_father'] == ['g1kid'] as Set },
+                { assert infoAt['chr1:3000']['autosomal_dominant_de_novo'] == ['g1kid'] as Set },
+                { assert infoAt['chr1:3000']['po_denovo'] == ['g1kid'] as Set },
+                { assert infoAt['chr1:4000']['autosomal_recessive'] == ['g1kid'] as Set },
+                { assert infoAt['chr1:4000']['po_both'] == ['g1kid'] as Set },
+                { assert comphetAt == ['chr1:1000', 'chr1:5000'] as Set },
+                // the intermediate side fields are stripped from the published VCF
+                { assert records.every { line -> ['comphet_side', 'het_side', 'denovo_side'].every { !line.split('\t')[7].contains(it + '=') } } }
             )
         }
     }
