@@ -272,7 +272,7 @@ function moi_x_recessive(fam) { return is_x_linked()  && !no_parents_in_fam(fam)
 function moi_x_dominant(fam)  { return is_x_linked()  && has_aff_parent(fam) && fam.every(segregating_dominant_x); }
 
 // Radiant names an X-linked de novo by the child's sex: a daughter's (het) is
-// x_linked_dominant_de_novo, a son's (hemizygous) is x_linked_recessive_de_novo.
+// x_linked_dominant_denovo, a son's (hemizygous) is x_linked_recessive_denovo.
 // moi_x_denovo only passes when every affected member has both parents in the
 // family, so every affected member is a de novo child here. Affected siblings
 // of both sexes would set both tags.
