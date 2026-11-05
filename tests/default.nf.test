@@ -72,6 +72,12 @@ nextflow_pipeline {
                 // effect, not just that annotation didn't crash.
                 { assert vepVcfs.every { vcf ->
                     path(vcf.toString()).linesGzip.any { line -> line.startsWith("##INFO=<ID=CSQ") && line.contains("SOURCE") }
+                } },
+                // RAD-216: the default vep_pick_order reaches VEP (MANE first, then
+                // protein-coding, then the most severe consequence).
+                { assert vepVcfs.every { vcf ->
+                    path(vcf.toString()).linesGzip.any { line -> line.startsWith("##VEP-command-line") &&
+                        line.contains("--pick_order mane_select,mane_plus_clinical,biotype,rank,canonical,appris,tsl,ccds,length,ensembl") }
                 } }
             )
         }

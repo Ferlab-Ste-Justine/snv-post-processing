@@ -26,7 +26,7 @@ concurrency:
 jobs:
   test:
     name: "Run pipeline with test data (${{ matrix.NXF_VER }} | ${{ matrix.test_name }} | ${{ matrix.profile }})"
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     strategy:
       # Serialized on purpose: in the quality-control-pipeline, concurrent
       # legs starting within seconds of each other have been observed to

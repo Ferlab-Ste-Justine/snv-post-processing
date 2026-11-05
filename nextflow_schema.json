@@ -357,6 +357,13 @@
                     "description": "Optional VEP cache flavor: 'merged' for the combined Ensembl/RefSeq cache, 'refseq' for the RefSeq-only cache. Leave unset for the default Ensembl-only cache.",
                     "help_text": "Sets VEP's --merged or --refseq flag at annotation time, and (when `download_cache` is set) selects the matching `<vep_species>_merged`/`<vep_species>_refseq` cache to download. When set to 'merged', the pipeline also adds VEP's --mane flag and the MANE/RefSeq-specific output fields automatically."
                 },
+                "vep_pick_order": {
+                    "type": "string",
+                    "default": "mane_select,mane_plus_clinical,biotype,rank,canonical,appris,tsl,ccds,length,ensembl",
+                    "pattern": "^(mane_select|mane_plus_clinical|canonical|appris|tsl|biotype|ccds|rank|length|ensembl|refseq)(,(mane_select|mane_plus_clinical|canonical|appris|tsl|biotype|ccds|rank|length|ensembl|refseq))*$",
+                    "description": "Comma-separated criteria VEP uses, in order, to choose the consequence it flags with PICK=1 (VEP's --pick_order).",
+                    "help_text": "VEP flags one consequence per variant with `PICK=1` (`--flag_pick`). Each criterion keeps only the best transcripts and the next one breaks remaining ties. The default keeps MANE transcripts first, then prefers protein-coding transcripts, then the most severe consequence (`rank`), so a variant that is missense in one gene and downstream of another is picked as missense. Set to null to use VEP's own order (`mane_select,mane_plus_clinical,canonical,appris,tsl,biotype,ccds,rank,length,ensembl,refseq`), where severity only comes 8th. Only the `PICK` flag changes: every consequence stays in the CSQ field."
+                },
                 "download_cache": {
                     "type": "boolean",
                     "description": "Whether to download the vep cache (species/flavor/version/genome set via vep_species/vep_annotation/vep_cache_version/vep_genome) or use the one at vep_cache"

@@ -39,7 +39,7 @@ jobs:
   nf-test-changes:
     name: nf-test-changes
     runs-on: # use GitHub runners
-      - "ubuntu-latest"
+      - "ubuntu-24.04"
     outputs:
       shard: ${{ steps.set-shards.outputs.shard }}
       total_shards: ${{ steps.set-shards.outputs.total_shards }}
@@ -53,6 +53,15 @@ jobs:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
           fetch-depth: 0
+
+      # get-shards runs nf-test without setup-nextflow (which is what installs
+      # Java 17 in the test jobs), so pin the JVM here rather than depend on the
+      # runner image's default -- nf-test 0.9.2 can't run on Java 25.
+      - name: Set up Java
+        uses: actions/setup-java@8df1039502a15bceb9433410b1a100fbe190c53b # v4.5.0
+        with:
+          java-version: "17"
+          distribution: "zulu"
 
       - name: get number of shards
         id: set-shards
@@ -73,7 +82,7 @@ jobs:
     needs: [nf-test-changes]
     if: ${{ needs.nf-test-changes.outputs.total_shards != '0' }}
     runs-on: # use GitHub runners
-      - "ubuntu-latest"
+      - "ubuntu-24.04"
     strategy:
       fail-fast: false
       matrix:
@@ -133,10 +142,10 @@ jobs:
           fi
 
   confirm-pass:
-    needs: [nf-test]
+    needs: [nf-test-changes, nf-test]
     if: always()
     runs-on: # use GitHub runners
-      - "ubuntu-latest"
+      - "ubuntu-24.04"
     steps:
       - name: One or more tests failed (excluding latest-everything)
         if: ${{ contains(needs.*.result, 'failure') }}

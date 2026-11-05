@@ -24,5 +24,5 @@ runs:
         AWS_ACCESS_KEY_ID: ${{ inputs.aws_access_key_id }}
         AWS_SECRET_ACCESS_KEY: ${{ inputs.aws_secret_access_key }}
         AWS_DEFAULT_REGION: ca-central-1
-      # The AWS CLI is already installed in the ubuntu-latest image.
+      # The AWS CLI is already installed in the ubuntu-24.04 image.
       run: aws s3 cp "${{ inputs.s3_path }}" "${{ inputs.destination }}" --recursive
