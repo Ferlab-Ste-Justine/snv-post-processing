@@ -1,0 +1,155 @@
+nextflow_workflow {
+
+    name "Test Subworkflow VQSR"
+    script "../main.nf"
+    workflow "VQSR"
+
+    tag "subworkflows"
+    tag "subworkflows_local"
+    tag "vqsr"
+    tag "gatk4"
+
+    // Both tests run the real conf/modules.config (tranches, annotations, --max-gaussians,
+    // truth-sensitivity filter levels, prefixes) and the default VQSR resources from
+    // nextflow.config, resolved against data-test/reference/broad as the workflow does.
+    //
+    // fixtures/ holds the genotyped VCFs of the test profile's two WGS families, as
+    // GATK4_GENOTYPEGVCFS writes them (chr22:50-51 Mb): family1 (trio, 2836 records) and
+    // family4 (one sample, 1809 records). Two families go in together so a mix-up in the
+    // subworkflow's joins on meta would show.
+
+    test("two families - SNP then INDEL recalibration") {
+
+        when {
+            params {
+                outdir = "$outputDir"
+            }
+            workflow {
+                """
+                def fixtures = "\${projectDir}/subworkflows/local/vqsr/tests/fixtures"
+                def broad    = "\${projectDir}/data-test/reference/broad"
+                def ref      = "\${projectDir}/data-test/reference/Homo_sapiens_assembly38/chr22"
+                def labels   = { resources -> resources.collect { r -> "--resource:\${r.labels} \${file(r.vcf).getFileName()}".toString() } }
+
+                input[0] = Channel.of(
+                    [ [ id:'family1', sequencingType:'WGS' ],
+                        file("\${fixtures}/family1.genotyped.vcf.gz", checkIfExists: true),
+                        file("\${fixtures}/family1.genotyped.vcf.gz.tbi", checkIfExists: true) ],
+                    [ [ id:'family4', sequencingType:'WGS' ],
+                        file("\${fixtures}/family4.genotyped.vcf.gz", checkIfExists: true),
+                        file("\${fixtures}/family4.genotyped.vcf.gz.tbi", checkIfExists: true) ]
+                )
+                input[1] = params.vqsr_snp_resources.collect { r -> file("\${broad}/\${r.vcf}", checkIfExists: true) }
+                input[2] = params.vqsr_snp_resources.collect { r -> file("\${broad}/\${r.index}", checkIfExists: true) }
+                input[3] = labels(params.vqsr_snp_resources)
+                input[4] = params.vqsr_indel_resources.collect { r -> file("\${broad}/\${r.vcf}", checkIfExists: true) }
+                input[5] = params.vqsr_indel_resources.collect { r -> file("\${broad}/\${r.index}", checkIfExists: true) }
+                input[6] = labels(params.vqsr_indel_resources)
+                input[7] = file("\${ref}/chr22.fa", checkIfExists: true)
+                input[8] = file("\${ref}/chr22.fa.fai", checkIfExists: true)
+                input[9] = file("\${ref}/chr22.dict", checkIfExists: true)
+                """
+            }
+        }
+
+        then {
+            def fixtures = "${projectDir}/subworkflows/local/vqsr/tests/fixtures"
+            def outputs  = workflow.out.vcf_tbi.collectEntries { [ (it[0].id): it ] }
+
+            // A record is SNP-only when REF and every ALT are one base: ApplyVQSR's SNP
+            // mode filters those, and its INDEL mode everything else (indels and mixed
+            // SNP/indel records).
+            def isSnp = { cols -> cols[3].length() == 1 && cols[4].split(',').every { it.length() == 1 } }
+            def records = { vcf -> path(vcf.toString()).linesGzip.findAll { !it.startsWith('#') }.collect { it.split('\t') } }
+            def samples = { vcf -> path(vcf.toString()).linesGzip.find { it.startsWith('#CHROM') }.split('\t').drop(9) }
+            def header  = { vcf -> path(vcf.toString()).linesGzip.findAll { it.startsWith('##') } }
+
+            // Per family: [SNP PASS, SNP filtered, other PASS, other filtered]. GATK is pinned
+            // (4.5.0.0) and VariantRecalibrator uses a fixed random seed, so these only
+            // change with GATK, the VQSR settings or the resources.
+            def summary = outputs.collectEntries { id, out ->
+                def recs = records(out[1])
+                [ (id): [
+                    snp_pass       : recs.count { isSnp(it) && it[6] == 'PASS' },
+                    snp_filtered   : recs.count { isSnp(it) && it[6] != 'PASS' },
+                    other_pass     : recs.count { !isSnp(it) && it[6] == 'PASS' },
+                    other_filtered : recs.count { !isSnp(it) && it[6] != 'PASS' }
+                ] ]
+            }
+
+            assertAll(
+                { assert workflow.success },
+                // one output per input family
+                { assert outputs.keySet() == ['family1', 'family4'] as Set },
+                // names from the GATK4_APPLYVQSR_INDEL prefix in conf/modules.config
+                { assert outputs.every { id, out -> file(out[1].toString()).name == "${id}.snpindel.vqsr_99.vcf.gz" } },
+                { assert outputs.every { id, out -> file(out[2].toString()).name == "${id}.snpindel.vqsr_99.vcf.gz.tbi" } },
+                // each output holds its own family: same samples and record count as its input
+                { assert outputs.every { id, out -> samples(out[1]) == samples("${fixtures}/${id}.genotyped.vcf.gz") } },
+                { assert outputs.every { id, out -> records(out[1]).size() == records("${fixtures}/${id}.genotyped.vcf.gz").size() } },
+                // both models were applied: their tranche filters are declared
+                { assert outputs.every { id, out -> header(out[1]).any { it.startsWith('##FILTER=<ID=VQSRTrancheSNP') } } },
+                { assert outputs.every { id, out -> header(out[1]).any { it.startsWith('##FILTER=<ID=VQSRTrancheINDEL') } } },
+                // every record was scored and given a FILTER value
+                { assert outputs.every { id, out -> records(out[1]).every { it[7].split(';').any { kv -> kv.startsWith('VQSLOD=') } } } },
+                { assert outputs.every { id, out -> records(out[1]).every { it[6] != '.' } } },
+                // SNPs are filtered by the SNP model only, everything else by the INDEL model only
+                { assert outputs.every { id, out -> records(out[1]).findAll { isSnp(it) }.every { it[6] == 'PASS' || it[6].startsWith('VQSRTrancheSNP') } } },
+                { assert outputs.every { id, out -> records(out[1]).findAll { !isSnp(it) }.every { it[6] == 'PASS' || it[6].startsWith('VQSRTrancheINDEL') } } },
+                // both kinds of record get both outcomes, so neither model filters all or nothing
+                { assert summary.every { id, s -> s.values().every { it > 0 } } },
+                // versions.yml contents, deduplicated: the two families finish in any order
+                { assert snapshot(
+                    summary,
+                    workflow.out.versions.collect { path(it.toString()).text }.unique().sort()
+                ).match() }
+            )
+        }
+    }
+
+    test("two families - stub") {
+
+        options "-stub"
+
+        when {
+            params {
+                outdir = "$outputDir"
+            }
+            workflow {
+                """
+                def fixtures = "\${projectDir}/subworkflows/local/vqsr/tests/fixtures"
+                def ref      = "\${projectDir}/data-test/reference/Homo_sapiens_assembly38/chr22"
+
+                input[0] = Channel.of(
+                    [ [ id:'family1', sequencingType:'WGS' ],
+                        file("\${fixtures}/family1.genotyped.vcf.gz", checkIfExists: true),
+                        file("\${fixtures}/family1.genotyped.vcf.gz.tbi", checkIfExists: true) ],
+                    [ [ id:'family4', sequencingType:'WGS' ],
+                        file("\${fixtures}/family4.genotyped.vcf.gz", checkIfExists: true),
+                        file("\${fixtures}/family4.genotyped.vcf.gz.tbi", checkIfExists: true) ]
+                )
+                input[1] = []
+                input[2] = []
+                input[3] = []
+                input[4] = []
+                input[5] = []
+                input[6] = []
+                input[7] = file("\${ref}/chr22.fa", checkIfExists: true)
+                input[8] = file("\${ref}/chr22.fa.fai", checkIfExists: true)
+                input[9] = file("\${ref}/chr22.dict", checkIfExists: true)
+                """
+            }
+        }
+
+        then {
+            assertAll(
+                { assert workflow.success },
+                // sorted by family: the two families finish in any order
+                { assert snapshot(
+                    workflow.out.vcf_tbi.sort { it[0].id },
+                    workflow.out.versions.collect { path(it.toString()).text }.unique().sort()
+                ).match() }
+            )
+        }
+    }
+}
