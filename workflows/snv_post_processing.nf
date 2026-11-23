@@ -324,7 +324,7 @@ workflow SNV_POST_PROCESSING {
 
     // --step inheritance only runs slivar: say so rather than skip exomiser without a word.
     if (params.step == 'inheritance' && isExomiserToolIncluded()) {
-        log.warn("Skipping exomiser: --step inheritance only runs slivar. To run exomiser on these VCFs, use --step exomiser.")
+        log.warn("Skipping exomiser: --step inheritance only runs slivar. To run exomiser on these VCFs, launch a separate run with --step exomiser.")
     }
 
     if ((isExomiserToolIncluded() && params.step != 'inheritance') || params.step == 'exomiser') {
