@@ -13,10 +13,26 @@ nextflow_pipeline {
         }
 
         then {
+            // MD5 of each published VCF's records (relative path -> md5), header excluded: the
+            // header carries paths, dates and command lines that change from run to run, while
+            // the records don't. Same value as `zcat <vcf> | grep -v '^#' | md5sum`, so a
+            // snapshot change can be traced to a stage and diffed from the shell.
+            def vcfRecordsMd5 = { outdir ->
+                getAllFilesFromDir(outdir, relative: true, includeDir: false)
+                    .collect { it.toString() }
+                    .findAll { it.endsWith('.vcf.gz') }
+                    .sort()
+                    .collectEntries { name ->
+                        def md5 = java.security.MessageDigest.getInstance('MD5')
+                        path("${outdir}/${name}").linesGzip.each { line -> if (!line.startsWith('#')) md5.update("${line}\n".getBytes('UTF-8')) }
+                        [ (name): md5.digest().encodeHex().toString() ]
+                    }
+            }
             // stable_name: All files + folders in ${params.outdir}/ with a stable name
             def stable_name = getAllFilesFromDir(params.outdir, relative: true, includeDir: true, ignore: ['pipeline_info/*.{html,json,txt}'])
-            // stable_path: All files in ${params.outdir}/ with stable content
-            // def stable_path = getAllFilesFromDir(params.outdir, ignoreFile: 'tests/.nftignore')
+            // Exomiser is left out: its scores vary between identical runs (e.g. 0.5506 vs
+            // 0.5518 for the same gene).
+            def vcfRecords = vcfRecordsMd5(params.outdir).findAll { name, md5 -> !name.startsWith('exomiser/') }
             def vepVcfs = getAllFilesFromDir(params.outdir, relative: false, includeDir: false)
                 .findAll { it.toString().endsWith(".vcf.gz") && it.toString().contains("/ensemblvep/") }
             assertAll(
@@ -26,8 +42,8 @@ nextflow_pipeline {
                     workflow.trace.succeeded().size(),
                     // All stable path name, with a relative path
                     stable_name,
-                    // All files with stable contents
-                    // stable_path
+                    // Records of every published VCF
+                    vcfRecords,
                     // Aggregated software versions, with the Nextflow version itself stripped
                     // (varies per environment/matrix entry, so it isn't stable across runs)
                     removeNextflowVersion("$outputDir/pipeline_info/snv-post-processing_software_mqc_versions.yml")
@@ -61,6 +77,18 @@ nextflow_pipeline {
         }
 
         then {
+            // Same helper as in the first test.
+            def vcfRecordsMd5 = { outdir ->
+                getAllFilesFromDir(outdir, relative: true, includeDir: false)
+                    .collect { it.toString() }
+                    .findAll { it.endsWith('.vcf.gz') }
+                    .sort()
+                    .collectEntries { name ->
+                        def md5 = java.security.MessageDigest.getInstance('MD5')
+                        path("${outdir}/${name}").linesGzip.each { line -> if (!line.startsWith('#')) md5.update("${line}\n".getBytes('UTF-8')) }
+                        [ (name): md5.digest().encodeHex().toString() ]
+                    }
+            }
             def vepVcfs = getAllFilesFromDir(params.outdir, relative: false, includeDir: false)
                 .findAll { it.toString().endsWith(".vcf.gz") && it.toString().contains("/ensemblvep/") }
 
@@ -78,7 +106,10 @@ nextflow_pipeline {
                 { assert vepVcfs.every { vcf ->
                     path(vcf.toString()).linesGzip.any { line -> line.startsWith("##VEP-command-line") &&
                         line.contains("--pick_order mane_select,mane_plus_clinical,biotype,rank,canonical,appris,tsl,ccds,length,ensembl") }
-                } }
+                } },
+                // Records of the VEP VCFs (and the VCFs before them): catches a change in
+                // the merged cache's annotations or in which consequence gets PICK=1
+                { assert snapshot(vcfRecordsMd5(params.outdir)).match() }
             )
         }
     }
