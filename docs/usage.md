@@ -127,7 +127,7 @@ CONGE-XXX,WES,CONGE-XXX.snv.vep.vcf.gz,CONGE-XXX.snv.vep.vcf.gz.tbi,CONGE-XXX.pe
 CONGE-YYY,WES,CONGE-YYY.snv.vep.vcf.gz,CONGE-YYY.snv.vep.vcf.gz.tbi,CONGE-YYY.ped
 ```
 
-When `--step inheritance` is set, slivar is run by default even if not listed in `tools`. Families without a `familyPed` value are silently skipped.
+When `--step inheritance` is set, slivar is run by default even if not listed in `tools`. Families without a `familyPed` value are silently skipped. Exomiser doesn't run at this step, even if listed in `tools`: the pipeline warns and skips it. Use `--step exomiser` to run it on the same VCFs.
 
 #### **This feature supports using results from a previous run as input.**
 
@@ -193,11 +193,11 @@ Note that the value for the familyPheno column must always be identical for the 
 
 #### Exomiser input data
 
-By default, both vep and exomiser steps, if applicable, run in parallel and consume the output of the normalization step.
+By default, both vep and exomiser steps, if applicable, run in parallel and consume the output of the normalization step. With `--step annotation`, they both consume the input VCFs, which are already normalized.
 
 To have the Exomiser step start from the VEP output instead, set the parameter `exomiser_start_from_vep` to `true`. In this case, the vep and exomiser steps will run sequentially.
 
-Note that the parameter `exomiser_start_from_vep` will be ignored if vep is not specified via the `tools` parameter.
+Note that the parameter `exomiser_start_from_vep` will be ignored if vep doesn't run, i.e. if vep is not specified via the `tools` parameter (except with `--step annotation`, where vep always runs).
 
 #### Exomiser CLI options
 

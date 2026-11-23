@@ -263,7 +263,10 @@ workflow SNV_POST_PROCESSING {
     ================================================================================
     */
 
-    if ((params.step in ['genotype', 'normalize'] && isVepToolIncluded()) || params.step == 'annotation') {
+    // VEP runs when listed in tools, and always at --step annotation.
+    def vepRuns = (params.step in ['genotype', 'normalize'] && isVepToolIncluded()) || params.step == 'annotation'
+
+    if (vepRuns) {
 
         //Annotating variants with VEP
 
@@ -318,13 +321,24 @@ workflow SNV_POST_PROCESSING {
         SLIVAR_INHERITANCE(ch_slivar_input, slivarRegionsBed, slivarExcludeBed, slivarGnotateFiles, slivarJs)
     }
 
-    if (isExomiserToolIncluded() || params.step == 'exomiser') {
+    // --step inheritance only runs slivar: say so rather than skip exomiser without a word.
+    if (params.step == 'inheritance' && isExomiserToolIncluded()) {
+        log.warn("Skipping exomiser: --step inheritance only runs slivar. To run exomiser on these VCFs, use --step exomiser.")
+    }
 
-        if (params.exomiser_start_from_vep) {
+    if ((isExomiserToolIncluded() && params.step != 'inheritance') || params.step == 'exomiser') {
+
+        // Exomiser reads the VEP output only when exomiser_start_from_vep is set and VEP runs;
+        // otherwise the normalized VCFs: this run's own, or at --step annotation the input
+        // VCFs, which are already normalized. Reading the output of a stage that didn't run
+        // would leave Exomiser with no input and skip it without a word.
+        if (params.step == 'exomiser') {
+            ch_exomiser_input = ch_samplesheet
+        } else if (params.exomiser_start_from_vep && vepRuns) {
             log.info("Running the exomiser analysis using the vep annotated vcf file as input")
-            ch_exomiser_input = params.step == 'exomiser' ? ch_samplesheet : ch_output_from_vep
+            ch_exomiser_input = ch_output_from_vep
         } else {
-            ch_exomiser_input = params.step == 'exomiser' ? ch_samplesheet : ch_output_from_splitMultiAllelics
+            ch_exomiser_input = params.step == 'annotation' ? ch_samplesheet : ch_output_from_splitMultiAllelics
         }
 
         def remm_input = params.exomiser_remm_version
