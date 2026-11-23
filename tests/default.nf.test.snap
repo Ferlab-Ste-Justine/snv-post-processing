@@ -182,15 +182,23 @@
                 "GATK4_VARIANTRECALIBRATOR_SNP": {
                     "gatk4": "4.5.0.0"
                 },
+                "SLIVAR_COMPOUNDHETS": {
+                    "bcftools": 1.13,
+                    "slivar": "0.3.1"
+                },
+                "SLIVAR_EXPR": {
+                    "bcftools": 1.13,
+                    "slivar": "0.3.1"
+                },
                 "SPLIT_MULTIALLELICS": {
-                    "bcftools": 1.2
+                    "bcftools": "1.20"
                 },
                 "Workflow": {
                     "Ferlab-Ste-Justine/snv-post-processing": "v3.0.0"
                 }
             }
         ],
-        "timestamp": "2026-10-01T13:52:57.027957343",
+        "timestamp": "2026-11-23T15:40:26.426782932",
         "meta": {
             "nf-test": "0.9.5",
             "nextflow": "24.10.5"

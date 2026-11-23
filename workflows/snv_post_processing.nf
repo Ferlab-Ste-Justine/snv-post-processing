@@ -319,6 +319,7 @@ workflow SNV_POST_PROCESSING {
             }
 
         SLIVAR_INHERITANCE(ch_slivar_input, slivarRegionsBed, slivarExcludeBed, slivarGnotateFiles, slivarJs)
+        ch_versions = ch_versions.mix(SLIVAR_INHERITANCE.out.versions)
     }
 
     // --step inheritance only runs slivar: say so rather than skip exomiser without a word.
