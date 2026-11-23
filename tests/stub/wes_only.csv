@@ -1,0 +1,4 @@
+familyId,sample,sequencingType,gvcf,familyPheno,familyPed
+family2,NA19240,WES,data-test/gvcf/NA19240.chr22_50000000-51000000.gvcf.gz,,data-test/ped/family2.ped
+family3,NA19238,WES,data-test/gvcf/NA19238.chr22_50000000-51000000.gvcf.gz,data-test/pheno/family3.yml,data-test/ped/family3.ped
+family3,NA19240,WES,data-test/gvcf/NA19240.chr22_50000000-51000000.gvcf.gz,data-test/pheno/family3.yml,data-test/ped/family3.ped

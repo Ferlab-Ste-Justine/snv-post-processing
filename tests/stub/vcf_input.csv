@@ -1,0 +1,3 @@
+familyId,sample,sequencingType,vcf,tbi,familyPheno,familyPed
+family1,NA19240,WGS,subworkflows/local/vqsr/tests/fixtures/family1.genotyped.vcf.gz,subworkflows/local/vqsr/tests/fixtures/family1.genotyped.vcf.gz.tbi,data-test/pheno/family1.yml,data-test/ped/family1.ped
+family4,NA21118,WGS,subworkflows/local/vqsr/tests/fixtures/family4.genotyped.vcf.gz,subworkflows/local/vqsr/tests/fixtures/family4.genotyped.vcf.gz.tbi,,

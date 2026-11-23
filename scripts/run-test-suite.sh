@@ -21,9 +21,10 @@
 #
 # Note on dependencies: the dry-run and lint steps need nothing but the
 # tools themselves, but the real (non-dry-run) nf-test suite still spins up
-# Docker containers, and its pipeline-level tests (tests/default.nf.test)
-# need the S3 test dataset synced locally (data-test/ -- see CLAUDE.md's
-# "Test dataset" section). This script does NOT include the ad hoc, manually
+# Docker containers, and its pipeline-level tests (tests/default.nf.test, and
+# tests/stub.nf.test, whose samplesheet and PED checks read the inputs for
+# real even under -stub) need the S3 test dataset synced locally (data-test/
+# -- see CLAUDE.md's "Test dataset" section). This script does NOT include the ad hoc, manually
 # -inspected `nextflow run` smoke tests -- see scripts/run-smoke-tests.sh for
 # those.
 #
