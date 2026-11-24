@@ -4,6 +4,26 @@ nextflow_pipeline {
     script "../main.nf"
     tag "pipeline"
 
+    // MD5 of each published VCF's records (relative path -> md5), header excluded: the
+    // header carries paths, dates and command lines that change from run to run, while the
+    // records don't. Same value as `zcat <vcf> | grep -v '^#' | md5sum`, so a snapshot
+    // change can be traced to a stage and diffed from the shell. Shared by the tests below,
+    // which see this variable; plain Java, since nf-test's path() and getAllFilesFromDir()
+    // aren't available outside a test.
+    def vcfRecordsMd5 = { outdir ->
+        def root = java.nio.file.Paths.get(outdir.toString())
+        def names = java.nio.file.Files.walk(root).withCloseable { files ->
+            files.iterator().collect { root.relativize(it).toString() }.findAll { it.endsWith('.vcf.gz') }.sort()
+        }
+        names.collectEntries { name ->
+            def md5 = java.security.MessageDigest.getInstance('MD5')
+            new java.util.zip.GZIPInputStream(java.nio.file.Files.newInputStream(root.resolve(name))).withReader('UTF-8') { reader ->
+                reader.eachLine { line -> if (!line.startsWith('#')) md5.update("${line}\n".getBytes('UTF-8')) }
+            }
+            [ (name): md5.digest().encodeHex().toString() ]
+        }
+    }
+
     test("-profile test") {
 
         when {
@@ -13,21 +33,6 @@ nextflow_pipeline {
         }
 
         then {
-            // MD5 of each published VCF's records (relative path -> md5), header excluded: the
-            // header carries paths, dates and command lines that change from run to run, while
-            // the records don't. Same value as `zcat <vcf> | grep -v '^#' | md5sum`, so a
-            // snapshot change can be traced to a stage and diffed from the shell.
-            def vcfRecordsMd5 = { outdir ->
-                getAllFilesFromDir(outdir, relative: true, includeDir: false)
-                    .collect { it.toString() }
-                    .findAll { it.endsWith('.vcf.gz') }
-                    .sort()
-                    .collectEntries { name ->
-                        def md5 = java.security.MessageDigest.getInstance('MD5')
-                        path("${outdir}/${name}").linesGzip.each { line -> if (!line.startsWith('#')) md5.update("${line}\n".getBytes('UTF-8')) }
-                        [ (name): md5.digest().encodeHex().toString() ]
-                    }
-            }
             // stable_name: All files + folders in ${params.outdir}/ with a stable name
             def stable_name = getAllFilesFromDir(params.outdir, relative: true, includeDir: true, ignore: ['pipeline_info/*.{html,json,txt}'])
             // Exomiser is left out: its scores vary between identical runs (e.g. 0.5506 vs
@@ -77,18 +82,6 @@ nextflow_pipeline {
         }
 
         then {
-            // Same helper as in the first test.
-            def vcfRecordsMd5 = { outdir ->
-                getAllFilesFromDir(outdir, relative: true, includeDir: false)
-                    .collect { it.toString() }
-                    .findAll { it.endsWith('.vcf.gz') }
-                    .sort()
-                    .collectEntries { name ->
-                        def md5 = java.security.MessageDigest.getInstance('MD5')
-                        path("${outdir}/${name}").linesGzip.each { line -> if (!line.startsWith('#')) md5.update("${line}\n".getBytes('UTF-8')) }
-                        [ (name): md5.digest().encodeHex().toString() ]
-                    }
-            }
             def vepVcfs = getAllFilesFromDir(params.outdir, relative: false, includeDir: false)
                 .findAll { it.toString().endsWith(".vcf.gz") && it.toString().contains("/ensemblvep/") }
 
