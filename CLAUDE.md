@@ -76,6 +76,8 @@ nextflow run Ferlab-Ste-Justine/snv-post-processing -profile test,docker -stub
 
 `-stub` runs the `stub:` block of each process instead of the real `script:` block — useful for verifying wiring without real data or reference downloads.
 
+`tests/stub.nf.test` runs the pipeline with `-stub` once per route (`--tools` subsets, WES-only, `download_cache`, each `--step` entry point) and checks how many tasks each process ran, so a stage that silently gets no input fails a test. It still needs `data-test/`: samplesheet validation and the PED-against-VCF check read the inputs for real.
+
 ### Test profile
 
 If running locally:

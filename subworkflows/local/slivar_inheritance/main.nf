@@ -41,4 +41,6 @@ workflow SLIVAR_INHERITANCE {
     vcf_tbi = ch_vcf_tbi // channel: [ val(meta), [ vcf, tbi ] ]
     expr_summary = SLIVAR_EXPR.out.summary // channel: [ val(meta), summary ]
     ch_summary = SLIVAR_COMPOUNDHETS.out.summary // channel: [ val(meta), summary ]
+    // BCFTOOLS_ANNOTATE (nf-core) reports through the versions topic instead
+    versions = SLIVAR_EXPR.out.versions.mix(SLIVAR_COMPOUNDHETS.out.versions) // channel: [ versions.yml ]
 }

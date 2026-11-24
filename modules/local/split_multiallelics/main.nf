@@ -26,9 +26,10 @@ process SPLIT_MULTIALLELICS {
         | bcftools norm -c w -m -any -f $fasta --old-rec-tag OLD_RECORD -Ou \\
         | bcftools view --min-ac 1 -Oz --write-index=tbi --output ${prefix}.vcf.gz $args
 
+    # Quoted: unquoted, the versions report reads bcftools 1.20 as the number 1.2.
     cat <<-END_VERSIONS > versions.yml
     "${task.process}":
-        bcftools: \$(bcftools --version 2>&1 | head -n1 | sed 's/^.*bcftools //; s/ .*\$//')
+        bcftools: "\$(bcftools --version 2>&1 | head -n1 | sed 's/^.*bcftools //; s/ .*\$//')"
     END_VERSIONS
     """
 
@@ -40,7 +41,7 @@ process SPLIT_MULTIALLELICS {
 
     cat <<-END_VERSIONS > versions.yml
     "${task.process}":
-        bcftools: \$(bcftools --version 2>&1 | head -n1 | sed 's/^.*bcftools //; s/ .*\$//')
+        bcftools: "\$(bcftools --version 2>&1 | head -n1 | sed 's/^.*bcftools //; s/ .*\$//')"
     END_VERSIONS
     """
 }

@@ -1,0 +1,489 @@
+{
+    "genotype - vep only": {
+        "content": [
+            {
+                "BCFTOOLS_FILTER": {
+                    "bcftools": 1.2
+                },
+                "BCFTOOLS_NORM": {
+                    "bcftools": 1.2
+                },
+                "BCFTOOLS_PLUGINFIXPLOIDY": {
+                    "bcftools": "1.23.1"
+                },
+                "BCFTOOLS_VIEW": {
+                    "bcftools": 1.2
+                },
+                "COMBINEGVCFS": {
+                    "gatk4": "4.5.0.0"
+                },
+                "ENSEMBLVEP_VEP": {
+                    "ensemblvep": 114.2,
+                    "perl-math-cdf": 0.1,
+                    "tabix": 1.9
+                },
+                "GATK4_APPLYVQSR_INDEL": {
+                    "gatk4": "4.5.0.0"
+                },
+                "GATK4_APPLYVQSR_SNP": {
+                    "gatk4": "4.5.0.0"
+                },
+                "GATK4_GENOTYPEGVCFS": {
+                    "gatk4": "4.5.0.0"
+                },
+                "GATK4_VARIANTFILTRATION": {
+                    "gatk4": "4.5.0.0"
+                },
+                "GATK4_VARIANTRECALIBRATOR_INDEL": {
+                    "gatk4": "4.5.0.0"
+                },
+                "GATK4_VARIANTRECALIBRATOR_SNP": {
+                    "gatk4": "4.5.0.0"
+                },
+                "SPLIT_MULTIALLELICS": {
+                    "bcftools": "1.20"
+                },
+                "Workflow": {
+                    "Ferlab-Ste-Justine/snv-post-processing": "v3.0.0"
+                }
+            }
+        ],
+        "timestamp": "2026-11-20T20:50:10.860303288",
+        "meta": {
+            "nf-test": "0.9.5",
+            "nextflow": "24.10.5"
+        }
+    },
+    "genotype - no tools": {
+        "content": [
+            {
+                "BCFTOOLS_FILTER": {
+                    "bcftools": 1.2
+                },
+                "BCFTOOLS_NORM": {
+                    "bcftools": 1.2
+                },
+                "BCFTOOLS_PLUGINFIXPLOIDY": {
+                    "bcftools": "1.23.1"
+                },
+                "BCFTOOLS_VIEW": {
+                    "bcftools": 1.2
+                },
+                "COMBINEGVCFS": {
+                    "gatk4": "4.5.0.0"
+                },
+                "GATK4_APPLYVQSR_INDEL": {
+                    "gatk4": "4.5.0.0"
+                },
+                "GATK4_APPLYVQSR_SNP": {
+                    "gatk4": "4.5.0.0"
+                },
+                "GATK4_GENOTYPEGVCFS": {
+                    "gatk4": "4.5.0.0"
+                },
+                "GATK4_VARIANTFILTRATION": {
+                    "gatk4": "4.5.0.0"
+                },
+                "GATK4_VARIANTRECALIBRATOR_INDEL": {
+                    "gatk4": "4.5.0.0"
+                },
+                "GATK4_VARIANTRECALIBRATOR_SNP": {
+                    "gatk4": "4.5.0.0"
+                },
+                "SPLIT_MULTIALLELICS": {
+                    "bcftools": "1.20"
+                },
+                "Workflow": {
+                    "Ferlab-Ste-Justine/snv-post-processing": "v3.0.0"
+                }
+            }
+        ],
+        "timestamp": "2026-11-20T20:49:16.64555535",
+        "meta": {
+            "nf-test": "0.9.5",
+            "nextflow": "24.10.5"
+        }
+    },
+    "genotype - exomiser only": {
+        "content": [
+            {
+                "BCFTOOLS_FILTER": {
+                    "bcftools": 1.2
+                },
+                "BCFTOOLS_NORM": {
+                    "bcftools": 1.2
+                },
+                "BCFTOOLS_PLUGINFIXPLOIDY": {
+                    "bcftools": "1.23.1"
+                },
+                "BCFTOOLS_VIEW": {
+                    "bcftools": 1.2
+                },
+                "COMBINEGVCFS": {
+                    "gatk4": "4.5.0.0"
+                },
+                "EXOMISER": {
+                    "exomiser": "14.0.0"
+                },
+                "GATK4_APPLYVQSR_INDEL": {
+                    "gatk4": "4.5.0.0"
+                },
+                "GATK4_APPLYVQSR_SNP": {
+                    "gatk4": "4.5.0.0"
+                },
+                "GATK4_GENOTYPEGVCFS": {
+                    "gatk4": "4.5.0.0"
+                },
+                "GATK4_VARIANTFILTRATION": {
+                    "gatk4": "4.5.0.0"
+                },
+                "GATK4_VARIANTRECALIBRATOR_INDEL": {
+                    "gatk4": "4.5.0.0"
+                },
+                "GATK4_VARIANTRECALIBRATOR_SNP": {
+                    "gatk4": "4.5.0.0"
+                },
+                "SPLIT_MULTIALLELICS": {
+                    "bcftools": "1.20"
+                },
+                "Workflow": {
+                    "Ferlab-Ste-Justine/snv-post-processing": "v3.0.0"
+                }
+            }
+        ],
+        "timestamp": "2026-11-20T20:51:02.60091376",
+        "meta": {
+            "nf-test": "0.9.5",
+            "nextflow": "24.10.5"
+        }
+    },
+    "genotype - WES only, download VEP cache": {
+        "content": [
+            {
+                "BCFTOOLS_ANNOTATE": {
+                    "bcftools": 1.2
+                },
+                "BCFTOOLS_FILTER": {
+                    "bcftools": 1.2
+                },
+                "BCFTOOLS_NORM": {
+                    "bcftools": 1.2
+                },
+                "BCFTOOLS_PLUGINFIXPLOIDY": {
+                    "bcftools": "1.23.1"
+                },
+                "BCFTOOLS_VIEW": {
+                    "bcftools": 1.2
+                },
+                "COMBINEGVCFS": {
+                    "gatk4": "4.5.0.0"
+                },
+                "ENSEMBLVEP_DOWNLOAD": {
+                    "ensemblvep": 114.2
+                },
+                "ENSEMBLVEP_VEP": {
+                    "ensemblvep": 114.2,
+                    "perl-math-cdf": 0.1,
+                    "tabix": 1.9
+                },
+                "EXOMISER": {
+                    "exomiser": "14.0.0"
+                },
+                "GATK4_GENOTYPEGVCFS": {
+                    "gatk4": "4.5.0.0"
+                },
+                "GATK4_VARIANTFILTRATION": {
+                    "gatk4": "4.5.0.0"
+                },
+                "SLIVAR_COMPOUNDHETS": {
+                    "bcftools": 1.13,
+                    "slivar": "0.3.1"
+                },
+                "SLIVAR_EXPR": {
+                    "bcftools": 1.13,
+                    "slivar": "0.3.1"
+                },
+                "SPLIT_MULTIALLELICS": {
+                    "bcftools": "1.20"
+                },
+                "Workflow": {
+                    "Ferlab-Ste-Justine/snv-post-processing": "v3.0.0"
+                }
+            }
+        ],
+        "timestamp": "2026-11-20T20:52:27.083628878",
+        "meta": {
+            "nf-test": "0.9.5",
+            "nextflow": "24.10.5"
+        }
+    },
+    "step inheritance": {
+        "content": [
+            {
+                "BCFTOOLS_ANNOTATE": {
+                    "bcftools": 1.2
+                },
+                "SLIVAR_COMPOUNDHETS": {
+                    "bcftools": 1.13,
+                    "slivar": "0.3.1"
+                },
+                "SLIVAR_EXPR": {
+                    "bcftools": 1.13,
+                    "slivar": "0.3.1"
+                },
+                "Workflow": {
+                    "Ferlab-Ste-Justine/snv-post-processing": "v3.0.0"
+                }
+            }
+        ],
+        "timestamp": "2026-11-20T20:53:25.909399983",
+        "meta": {
+            "nf-test": "0.9.5",
+            "nextflow": "24.10.5"
+        }
+    },
+    "genotype - exomiser only, exomiser_start_from_vep ignored without vep": {
+        "content": [
+            {
+                "BCFTOOLS_FILTER": {
+                    "bcftools": 1.2
+                },
+                "BCFTOOLS_NORM": {
+                    "bcftools": 1.2
+                },
+                "BCFTOOLS_PLUGINFIXPLOIDY": {
+                    "bcftools": "1.23.1"
+                },
+                "BCFTOOLS_VIEW": {
+                    "bcftools": 1.2
+                },
+                "COMBINEGVCFS": {
+                    "gatk4": "4.5.0.0"
+                },
+                "EXOMISER": {
+                    "exomiser": "14.0.0"
+                },
+                "GATK4_APPLYVQSR_INDEL": {
+                    "gatk4": "4.5.0.0"
+                },
+                "GATK4_APPLYVQSR_SNP": {
+                    "gatk4": "4.5.0.0"
+                },
+                "GATK4_GENOTYPEGVCFS": {
+                    "gatk4": "4.5.0.0"
+                },
+                "GATK4_VARIANTFILTRATION": {
+                    "gatk4": "4.5.0.0"
+                },
+                "GATK4_VARIANTRECALIBRATOR_INDEL": {
+                    "gatk4": "4.5.0.0"
+                },
+                "GATK4_VARIANTRECALIBRATOR_SNP": {
+                    "gatk4": "4.5.0.0"
+                },
+                "SPLIT_MULTIALLELICS": {
+                    "bcftools": "1.20"
+                },
+                "Workflow": {
+                    "Ferlab-Ste-Justine/snv-post-processing": "v3.0.0"
+                }
+            }
+        ],
+        "timestamp": "2026-11-20T20:51:54.311358817",
+        "meta": {
+            "nf-test": "0.9.5",
+            "nextflow": "24.10.5"
+        }
+    },
+    "genotype - all tools": {
+        "content": [
+            {
+                "BCFTOOLS_ANNOTATE": {
+                    "bcftools": 1.2
+                },
+                "BCFTOOLS_FILTER": {
+                    "bcftools": 1.2
+                },
+                "BCFTOOLS_NORM": {
+                    "bcftools": 1.2
+                },
+                "BCFTOOLS_PLUGINFIXPLOIDY": {
+                    "bcftools": "1.23.1"
+                },
+                "BCFTOOLS_VIEW": {
+                    "bcftools": 1.2
+                },
+                "COMBINEGVCFS": {
+                    "gatk4": "4.5.0.0"
+                },
+                "ENSEMBLVEP_VEP": {
+                    "ensemblvep": 114.2,
+                    "perl-math-cdf": 0.1,
+                    "tabix": 1.9
+                },
+                "EXOMISER": {
+                    "exomiser": "14.0.0"
+                },
+                "GATK4_APPLYVQSR_INDEL": {
+                    "gatk4": "4.5.0.0"
+                },
+                "GATK4_APPLYVQSR_SNP": {
+                    "gatk4": "4.5.0.0"
+                },
+                "GATK4_GENOTYPEGVCFS": {
+                    "gatk4": "4.5.0.0"
+                },
+                "GATK4_VARIANTFILTRATION": {
+                    "gatk4": "4.5.0.0"
+                },
+                "GATK4_VARIANTRECALIBRATOR_INDEL": {
+                    "gatk4": "4.5.0.0"
+                },
+                "GATK4_VARIANTRECALIBRATOR_SNP": {
+                    "gatk4": "4.5.0.0"
+                },
+                "SLIVAR_COMPOUNDHETS": {
+                    "bcftools": 1.13,
+                    "slivar": "0.3.1"
+                },
+                "SLIVAR_EXPR": {
+                    "bcftools": 1.13,
+                    "slivar": "0.3.1"
+                },
+                "SPLIT_MULTIALLELICS": {
+                    "bcftools": "1.20"
+                },
+                "Workflow": {
+                    "Ferlab-Ste-Justine/snv-post-processing": "v3.0.0"
+                }
+            }
+        ],
+        "timestamp": "2026-11-20T20:48:25.3525669",
+        "meta": {
+            "nf-test": "0.9.5",
+            "nextflow": "24.10.5"
+        }
+    },
+    "step annotation - all tools, exomiser from VEP": {
+        "content": [
+            {
+                "BCFTOOLS_ANNOTATE": {
+                    "bcftools": 1.2
+                },
+                "ENSEMBLVEP_VEP": {
+                    "ensemblvep": 114.2,
+                    "perl-math-cdf": 0.1,
+                    "tabix": 1.9
+                },
+                "EXOMISER": {
+                    "exomiser": "14.0.0"
+                },
+                "SLIVAR_COMPOUNDHETS": {
+                    "bcftools": 1.13,
+                    "slivar": "0.3.1"
+                },
+                "SLIVAR_EXPR": {
+                    "bcftools": 1.13,
+                    "slivar": "0.3.1"
+                },
+                "Workflow": {
+                    "Ferlab-Ste-Justine/snv-post-processing": "v3.0.0"
+                }
+            }
+        ],
+        "timestamp": "2026-11-20T20:53:13.143331652",
+        "meta": {
+            "nf-test": "0.9.5",
+            "nextflow": "24.10.5"
+        }
+    },
+    "step annotation - all tools, exomiser from the input VCFs": {
+        "content": [
+            {
+                "BCFTOOLS_ANNOTATE": {
+                    "bcftools": 1.2
+                },
+                "ENSEMBLVEP_VEP": {
+                    "ensemblvep": 114.2,
+                    "perl-math-cdf": 0.1,
+                    "tabix": 1.9
+                },
+                "EXOMISER": {
+                    "exomiser": "14.0.0"
+                },
+                "SLIVAR_COMPOUNDHETS": {
+                    "bcftools": 1.13,
+                    "slivar": "0.3.1"
+                },
+                "SLIVAR_EXPR": {
+                    "bcftools": 1.13,
+                    "slivar": "0.3.1"
+                },
+                "Workflow": {
+                    "Ferlab-Ste-Justine/snv-post-processing": "v3.0.0"
+                }
+            }
+        ],
+        "timestamp": "2026-11-20T20:52:58.473264338",
+        "meta": {
+            "nf-test": "0.9.5",
+            "nextflow": "24.10.5"
+        }
+    },
+    "step normalize - all tools": {
+        "content": [
+            {
+                "BCFTOOLS_ANNOTATE": {
+                    "bcftools": 1.2
+                },
+                "BCFTOOLS_PLUGINFIXPLOIDY": {
+                    "bcftools": "1.23.1"
+                },
+                "ENSEMBLVEP_VEP": {
+                    "ensemblvep": 114.2,
+                    "perl-math-cdf": 0.1,
+                    "tabix": 1.9
+                },
+                "EXOMISER": {
+                    "exomiser": "14.0.0"
+                },
+                "SLIVAR_COMPOUNDHETS": {
+                    "bcftools": 1.13,
+                    "slivar": "0.3.1"
+                },
+                "SLIVAR_EXPR": {
+                    "bcftools": 1.13,
+                    "slivar": "0.3.1"
+                },
+                "SPLIT_MULTIALLELICS": {
+                    "bcftools": "1.20"
+                },
+                "Workflow": {
+                    "Ferlab-Ste-Justine/snv-post-processing": "v3.0.0"
+                }
+            }
+        ],
+        "timestamp": "2026-11-20T20:52:43.558964318",
+        "meta": {
+            "nf-test": "0.9.5",
+            "nextflow": "24.10.5"
+        }
+    },
+    "step exomiser": {
+        "content": [
+            {
+                "EXOMISER": {
+                    "exomiser": "14.0.0"
+                },
+                "Workflow": {
+                    "Ferlab-Ste-Justine/snv-post-processing": "v3.0.0"
+                }
+            }
+        ],
+        "timestamp": "2026-11-20T20:53:37.057358562",
+        "meta": {
+            "nf-test": "0.9.5",
+            "nextflow": "24.10.5"
+        }
+    }
+}

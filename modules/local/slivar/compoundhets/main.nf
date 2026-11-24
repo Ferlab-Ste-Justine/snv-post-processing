@@ -2,7 +2,11 @@ process SLIVAR_COMPOUNDHETS {
     tag "$meta.id"
     label 'process_single'
 
-    container "docker.io/brentp/slivar"
+    // No biocontainer for slivar: brentp (its author) publishes the image on Docker Hub. Pinned
+    // to a release tag: untagged, it floats with :latest (same image as v0.3.1 as of 2026-11).
+    // The docker.io/ prefix keeps a global docker.registry from rewriting it to a registry
+    // that doesn't host it.
+    container "docker.io/brentp/slivar:v0.3.1"
 
     input:
     tuple val(meta), path(vcf), path(ped)

@@ -1,0 +1,341 @@
+nextflow_pipeline {
+
+    name "Test pipeline routes (stub)"
+    script "../main.nf"
+    tag "pipeline"
+    tag "stub"
+
+    // Every test runs the whole pipeline with -stub: each process runs its stub: block
+    // instead of the real tool, so a run takes about a minute. The checks that run before
+    // any task still read the inputs for real (samplesheet validation, PED against VCF
+    // header), so -profile test's data-test/ must be present, as for the other tests.
+    //
+    // Each test compares how many tasks each process ran against the route its parameters
+    // should take: a stage that silently gets no input (and doesn't run), or runs when it
+    // shouldn't, fails the test. tasksPerProcess maps the process's short name to its task
+    // count. Which VCFs exomiser reads is checked from the log message it writes when it
+    // reads VEP's output (log.info only goes to nextflow.log, not to stdout).
+    // Each test also snapshots the software versions report (versions.yml, as nf-core lint
+    // requires), so a route whose tools go missing from the report shows up too. The stub:
+    // blocks report the real tool versions, so it matches a real run's report.
+    //
+    // Inputs: assets/testSampleSheet.csv (-profile test) for the genotype routes:
+    //   family1  trio, WGS, phenopacket + PED  -> COMBINEGVCFS, VQSR, slivar, exomiser
+    //   family2  1 sample, WES, PED only        -> hard filters, slivar
+    //   family3  duo, WES, phenopacket + PED    -> COMBINEGVCFS, hard filters, slivar, exomiser
+    //   family4  1 sample, WGS, nothing         -> VQSR
+    // tests/stub/wes_only.csv: family2 and family3 only.
+    // tests/stub/vcf_input.csv, for the --step routes: family1 (phenopacket + PED) and
+    //   family4 (neither), as genotyped VCFs (the VQSR subworkflow test fixtures).
+
+    // writemeta runs once per run, whatever the route.
+
+    options "-stub"
+
+    test("genotype - all tools") {
+
+        when {
+            params {
+                outdir = "$outputDir"
+            }
+        }
+
+        then {
+            def tasksPerProcess = workflow.trace.tasks().collect { it.name.replaceAll(/ \(.*\)$/, '').tokenize(':')[-1] }.countBy { it }
+            assertAll(
+                { assert workflow.success },
+                { assert snapshot(removeNextflowVersion("$outputDir/pipeline_info/snv-post-processing_software_mqc_versions.yml")).match() },
+                { assert tasksPerProcess == [
+                    writemeta: 1,
+                    BCFTOOLS_VIEW: 7, BCFTOOLS_FILTER: 7, BCFTOOLS_NORM: 7,
+                    COMBINEGVCFS: 2, GATK4_GENOTYPEGVCFS: 4,
+                    GATK4_VARIANTRECALIBRATOR_SNP: 2, GATK4_APPLYVQSR_SNP: 2,
+                    GATK4_VARIANTRECALIBRATOR_INDEL: 2, GATK4_APPLYVQSR_INDEL: 2,
+                    GATK4_VARIANTFILTRATION: 2,
+                    SPLIT_MULTIALLELICS: 4, BCFTOOLS_PLUGINFIXPLOIDY: 4,
+                    ENSEMBLVEP_VEP: 4,
+                    SLIVAR_EXPR: 3, SLIVAR_COMPOUNDHETS: 3, BCFTOOLS_ANNOTATE: 3,
+                    EXOMISER: 2
+                ] },
+                // test profile sets exomiser_start_from_vep, and vep runs
+                { assert path("${metaDir}/nextflow.log").text.contains("Running the exomiser analysis using the vep annotated vcf file as input") }
+            )
+        }
+    }
+
+    test("genotype - no tools") {
+
+        when {
+            params {
+                outdir = "$outputDir"
+                tools  = ""
+            }
+        }
+
+        then {
+            def tasksPerProcess = workflow.trace.tasks().collect { it.name.replaceAll(/ \(.*\)$/, '').tokenize(':')[-1] }.countBy { it }
+            assertAll(
+                { assert workflow.success },
+                { assert snapshot(removeNextflowVersion("$outputDir/pipeline_info/snv-post-processing_software_mqc_versions.yml")).match() },
+                { assert tasksPerProcess == [
+                    writemeta: 1,
+                    BCFTOOLS_VIEW: 7, BCFTOOLS_FILTER: 7, BCFTOOLS_NORM: 7,
+                    COMBINEGVCFS: 2, GATK4_GENOTYPEGVCFS: 4,
+                    GATK4_VARIANTRECALIBRATOR_SNP: 2, GATK4_APPLYVQSR_SNP: 2,
+                    GATK4_VARIANTRECALIBRATOR_INDEL: 2, GATK4_APPLYVQSR_INDEL: 2,
+                    GATK4_VARIANTFILTRATION: 2,
+                    SPLIT_MULTIALLELICS: 4, BCFTOOLS_PLUGINFIXPLOIDY: 4
+                ] },
+                // with no tools, the normalized VCFs are the result: published, with their CSV
+                { assert path("$outputDir/csv/normalized_genotypes.csv").exists() }
+            )
+        }
+    }
+
+    test("genotype - vep only") {
+
+        when {
+            params {
+                outdir = "$outputDir"
+                tools  = "vep"
+            }
+        }
+
+        then {
+            def tasksPerProcess = workflow.trace.tasks().collect { it.name.replaceAll(/ \(.*\)$/, '').tokenize(':')[-1] }.countBy { it }
+            assertAll(
+                { assert workflow.success },
+                { assert snapshot(removeNextflowVersion("$outputDir/pipeline_info/snv-post-processing_software_mqc_versions.yml")).match() },
+                { assert tasksPerProcess == [
+                    writemeta: 1,
+                    BCFTOOLS_VIEW: 7, BCFTOOLS_FILTER: 7, BCFTOOLS_NORM: 7,
+                    COMBINEGVCFS: 2, GATK4_GENOTYPEGVCFS: 4,
+                    GATK4_VARIANTRECALIBRATOR_SNP: 2, GATK4_APPLYVQSR_SNP: 2,
+                    GATK4_VARIANTRECALIBRATOR_INDEL: 2, GATK4_APPLYVQSR_INDEL: 2,
+                    GATK4_VARIANTFILTRATION: 2,
+                    SPLIT_MULTIALLELICS: 4, BCFTOOLS_PLUGINFIXPLOIDY: 4,
+                    ENSEMBLVEP_VEP: 4
+                ] }
+            )
+        }
+    }
+
+    test("genotype - exomiser only") {
+
+        when {
+            params {
+                outdir                  = "$outputDir"
+                tools                   = "exomiser"
+                exomiser_start_from_vep = false
+            }
+        }
+
+        then {
+            def tasksPerProcess = workflow.trace.tasks().collect { it.name.replaceAll(/ \(.*\)$/, '').tokenize(':')[-1] }.countBy { it }
+            assertAll(
+                { assert workflow.success },
+                { assert snapshot(removeNextflowVersion("$outputDir/pipeline_info/snv-post-processing_software_mqc_versions.yml")).match() },
+                { assert tasksPerProcess == [
+                    writemeta: 1,
+                    BCFTOOLS_VIEW: 7, BCFTOOLS_FILTER: 7, BCFTOOLS_NORM: 7,
+                    COMBINEGVCFS: 2, GATK4_GENOTYPEGVCFS: 4,
+                    GATK4_VARIANTRECALIBRATOR_SNP: 2, GATK4_APPLYVQSR_SNP: 2,
+                    GATK4_VARIANTRECALIBRATOR_INDEL: 2, GATK4_APPLYVQSR_INDEL: 2,
+                    GATK4_VARIANTFILTRATION: 2,
+                    SPLIT_MULTIALLELICS: 4, BCFTOOLS_PLUGINFIXPLOIDY: 4,
+                    EXOMISER: 2
+                ] }
+            )
+        }
+    }
+
+    test("genotype - exomiser only, exomiser_start_from_vep ignored without vep") {
+
+        // Regression test (BIOINFO-249): exomiser_start_from_vep without vep in tools made
+        // exomiser read VEP's (empty) output, so it never ran. The docs say the parameter is
+        // ignored without vep: exomiser reads the normalized VCFs.
+        when {
+            params {
+                outdir                  = "$outputDir"
+                tools                   = "exomiser"
+                exomiser_start_from_vep = true
+            }
+        }
+
+        then {
+            def tasksPerProcess = workflow.trace.tasks().collect { it.name.replaceAll(/ \(.*\)$/, '').tokenize(':')[-1] }.countBy { it }
+            assertAll(
+                { assert workflow.success },
+                { assert snapshot(removeNextflowVersion("$outputDir/pipeline_info/snv-post-processing_software_mqc_versions.yml")).match() },
+                { assert tasksPerProcess['EXOMISER'] == 2 },
+                { assert !tasksPerProcess.containsKey('ENSEMBLVEP_VEP') },
+                { assert !path("${metaDir}/nextflow.log").text.contains("Running the exomiser analysis using the vep annotated vcf file as input") }
+            )
+        }
+    }
+
+    test("genotype - WES only, download VEP cache") {
+
+        // No WGS family: the VQSR branch gets no input and must not run. Also covers
+        // download_cache: the cache is downloaded once and passed to VEP.
+        when {
+            params {
+                outdir         = "$outputDir"
+                input          = "${projectDir}/tests/stub/wes_only.csv"
+                download_cache = true
+            }
+        }
+
+        then {
+            def tasksPerProcess = workflow.trace.tasks().collect { it.name.replaceAll(/ \(.*\)$/, '').tokenize(':')[-1] }.countBy { it }
+            assertAll(
+                { assert workflow.success },
+                { assert snapshot(removeNextflowVersion("$outputDir/pipeline_info/snv-post-processing_software_mqc_versions.yml")).match() },
+                { assert tasksPerProcess == [
+                    writemeta: 1,
+                    BCFTOOLS_VIEW: 3, BCFTOOLS_FILTER: 3, BCFTOOLS_NORM: 3,
+                    COMBINEGVCFS: 1, GATK4_GENOTYPEGVCFS: 2,
+                    GATK4_VARIANTFILTRATION: 2,
+                    SPLIT_MULTIALLELICS: 2, BCFTOOLS_PLUGINFIXPLOIDY: 2,
+                    ENSEMBLVEP_DOWNLOAD: 1, ENSEMBLVEP_VEP: 2,
+                    SLIVAR_EXPR: 2, SLIVAR_COMPOUNDHETS: 2, BCFTOOLS_ANNOTATE: 2,
+                    EXOMISER: 1
+                ] }
+            )
+        }
+    }
+
+    test("step normalize - all tools") {
+
+        when {
+            params {
+                outdir = "$outputDir"
+                input  = "${projectDir}/tests/stub/vcf_input.csv"
+                step   = "normalize"
+            }
+        }
+
+        then {
+            def tasksPerProcess = workflow.trace.tasks().collect { it.name.replaceAll(/ \(.*\)$/, '').tokenize(':')[-1] }.countBy { it }
+            assertAll(
+                { assert workflow.success },
+                { assert snapshot(removeNextflowVersion("$outputDir/pipeline_info/snv-post-processing_software_mqc_versions.yml")).match() },
+                { assert tasksPerProcess == [
+                    writemeta: 1,
+                    SPLIT_MULTIALLELICS: 2, BCFTOOLS_PLUGINFIXPLOIDY: 2,
+                    ENSEMBLVEP_VEP: 2,
+                    SLIVAR_EXPR: 1, SLIVAR_COMPOUNDHETS: 1, BCFTOOLS_ANNOTATE: 1,
+                    EXOMISER: 1
+                ] }
+            )
+        }
+    }
+
+    test("step annotation - all tools, exomiser from the input VCFs") {
+
+        // Regression test (BIOINFO-249): with exomiser_start_from_vep off (the default),
+        // exomiser read this run's normalization output, which --step annotation doesn't
+        // produce, so it never ran. It now reads the input VCFs, already normalized.
+        when {
+            params {
+                outdir                  = "$outputDir"
+                input                   = "${projectDir}/tests/stub/vcf_input.csv"
+                step                    = "annotation"
+                exomiser_start_from_vep = false
+            }
+        }
+
+        then {
+            def tasksPerProcess = workflow.trace.tasks().collect { it.name.replaceAll(/ \(.*\)$/, '').tokenize(':')[-1] }.countBy { it }
+            assertAll(
+                { assert workflow.success },
+                { assert snapshot(removeNextflowVersion("$outputDir/pipeline_info/snv-post-processing_software_mqc_versions.yml")).match() },
+                { assert tasksPerProcess == [
+                    writemeta: 1,
+                    ENSEMBLVEP_VEP: 2,
+                    SLIVAR_EXPR: 1, SLIVAR_COMPOUNDHETS: 1, BCFTOOLS_ANNOTATE: 1,
+                    EXOMISER: 1
+                ] },
+                { assert !path("${metaDir}/nextflow.log").text.contains("Running the exomiser analysis using the vep annotated vcf file as input") }
+            )
+        }
+    }
+
+    test("step annotation - all tools, exomiser from VEP") {
+
+        when {
+            params {
+                outdir                  = "$outputDir"
+                input                   = "${projectDir}/tests/stub/vcf_input.csv"
+                step                    = "annotation"
+                exomiser_start_from_vep = true
+            }
+        }
+
+        then {
+            def tasksPerProcess = workflow.trace.tasks().collect { it.name.replaceAll(/ \(.*\)$/, '').tokenize(':')[-1] }.countBy { it }
+            assertAll(
+                { assert workflow.success },
+                { assert snapshot(removeNextflowVersion("$outputDir/pipeline_info/snv-post-processing_software_mqc_versions.yml")).match() },
+                { assert tasksPerProcess == [
+                    writemeta: 1,
+                    ENSEMBLVEP_VEP: 2,
+                    SLIVAR_EXPR: 1, SLIVAR_COMPOUNDHETS: 1, BCFTOOLS_ANNOTATE: 1,
+                    EXOMISER: 1
+                ] },
+                { assert path("${metaDir}/nextflow.log").text.contains("Running the exomiser analysis using the vep annotated vcf file as input") }
+            )
+        }
+    }
+
+    test("step inheritance") {
+
+        // Only slivar runs: exomiser is skipped with a warning, even though the test
+        // profile lists it in tools.
+
+        when {
+            params {
+                outdir = "$outputDir"
+                input  = "${projectDir}/tests/stub/vcf_input.csv"
+                step   = "inheritance"
+            }
+        }
+
+        then {
+            def tasksPerProcess = workflow.trace.tasks().collect { it.name.replaceAll(/ \(.*\)$/, '').tokenize(':')[-1] }.countBy { it }
+            assertAll(
+                { assert workflow.success },
+                { assert snapshot(removeNextflowVersion("$outputDir/pipeline_info/snv-post-processing_software_mqc_versions.yml")).match() },
+                { assert tasksPerProcess == [
+                    writemeta: 1,
+                    SLIVAR_EXPR: 1, SLIVAR_COMPOUNDHETS: 1, BCFTOOLS_ANNOTATE: 1
+                ] },
+                // the test profile's tools include exomiser, which this step doesn't run
+                { assert path("${metaDir}/nextflow.log").text.contains("Skipping exomiser: --step inheritance only runs slivar.") }
+            )
+        }
+    }
+
+    test("step exomiser") {
+
+        when {
+            params {
+                outdir = "$outputDir"
+                input  = "${projectDir}/tests/stub/vcf_input.csv"
+                step   = "exomiser"
+            }
+        }
+
+        then {
+            def tasksPerProcess = workflow.trace.tasks().collect { it.name.replaceAll(/ \(.*\)$/, '').tokenize(':')[-1] }.countBy { it }
+            assertAll(
+                { assert workflow.success },
+                { assert snapshot(removeNextflowVersion("$outputDir/pipeline_info/snv-post-processing_software_mqc_versions.yml")).match() },
+                { assert tasksPerProcess == [
+                    writemeta: 1,
+                    EXOMISER: 1
+                ] }
+            )
+        }
+    }
+}

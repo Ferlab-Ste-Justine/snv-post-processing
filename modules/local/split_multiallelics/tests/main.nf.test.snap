@@ -3,14 +3,14 @@
         "content": [
             "test.splitted.vcf.gz.tbi",
             [
-                "versions.yml:md5,0a89f971e3f1de0562b81c3b58b88ac0"
+                "versions.yml:md5,bd24d345d0a3ac41b9996c057d37256c"
             ]
         ],
+        "timestamp": "2026-11-20T20:54:12.323701267",
         "meta": {
-            "nf-test": "0.9.3",
+            "nf-test": "0.9.5",
             "nextflow": "24.10.5"
-        },
-        "timestamp": "2026-05-20T12:21:16.010881"
+        }
     },
     "human - vcf - stub": {
         "content": [
@@ -32,7 +32,7 @@
                     ]
                 ],
                 "2": [
-                    "versions.yml:md5,0a89f971e3f1de0562b81c3b58b88ac0"
+                    "versions.yml:md5,bd24d345d0a3ac41b9996c057d37256c"
                 ],
                 "tbi": [
                     [
@@ -51,14 +51,14 @@
                     ]
                 ],
                 "versions": [
-                    "versions.yml:md5,0a89f971e3f1de0562b81c3b58b88ac0"
+                    "versions.yml:md5,bd24d345d0a3ac41b9996c057d37256c"
                 ]
             }
         ],
+        "timestamp": "2026-11-20T20:54:21.233032248",
         "meta": {
-            "nf-test": "0.9.3",
+            "nf-test": "0.9.5",
             "nextflow": "24.10.5"
-        },
-        "timestamp": "2026-05-20T12:21:20.902484"
+        }
     }
 }
